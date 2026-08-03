@@ -1,0 +1,20 @@
+{
+  "name": "agent-recall",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Cloud agent memory: web management, bearer tokens, MCP, hooks, and two-path recall.",
+  "packageManager": "pnpm@10.30.3",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @agent-recall/dto build && pnpm -r --parallel --filter @agent-recall/server --filter @agent-recall/web dev",
+    "dev:test": "pnpm --filter @agent-recall/dto build && pnpm -r --parallel --filter @agent-recall/server --filter @agent-recall/web dev:test",
+    "start:test": "pnpm --filter @agent-recall/server start:test",
+    "start:prod": "pnpm --filter @agent-recall/server start:prod",
+    "build": "pnpm --filter @agent-recall/dto build && pnpm -r --filter @agent-recall/server --filter @agent-recall/mcp --filter @agent-recall/web build",
+    "typecheck": "pnpm --filter @agent-recall/dto build && pnpm -r --filter @agent-recall/dto --filter @agent-recall/server --filter @agent-recall/mcp --filter @agent-recall/web typecheck",
+    "test": "pnpm --filter @agent-recall/dto build && pnpm --filter @agent-recall/server test"
+  }
+}
