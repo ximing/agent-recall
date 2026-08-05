@@ -1,0 +1,36 @@
+{
+  "name": "@agent-recall/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "env -u http_proxy -u https_proxy -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY APP_ENV=test tsx watch src/index.ts",
+    "dev:test": "env -u http_proxy -u https_proxy -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY APP_ENV=test tsx watch src/index.ts",
+    "start:test": "env -u http_proxy -u https_proxy -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY APP_ENV=test node dist/index.js",
+    "start:prod": "env -u http_proxy -u https_proxy -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY APP_ENV=production node dist/index.js",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@agent-recall/dto": "workspace:*",
+    "@electric-sql/pglite": "^0.3.14",
+    "@fastify/cookie": "^11.0.2",
+    "@fastify/cors": "^11.0.1",
+    "@fastify/static": "^8.2.0",
+    "argon2": "^0.41.1",
+    "dotenv": "^16.4.7",
+    "drizzle-orm": "^0.45.1",
+    "fastify": "^5.2.1",
+    "pg": "^8.14.1",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.4",
+    "@types/pg": "^8.11.11",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  }
+}
