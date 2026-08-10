@@ -96,7 +96,7 @@ h1, .mark {
   border-radius: 10px;
 }
 .rail-nav a.active, .rail-nav a[aria-current="page"] { background: rgba(255, 250, 243, 0.12); }
-.who { color: #d9cbb8; font-size: 0.82rem; word-break: break-all; }
+.who { color: #d9cbb8; font-size: 0.82rem; word-break: break-all; margin-top: auto; }
 .stage { padding: 2rem 1.4rem 3rem; }
 .page { max-width: 720px; }
 .page-head h1 { margin: 0 0 0.3rem; font-size: 2.4rem; }

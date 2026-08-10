@@ -62,8 +62,9 @@ export class MemoriesService extends Service {
       return;
     }
     try {
-      await api.createMemory(content);
+      const created = await api.createMemory(content);
       this.draft = '';
+      this.memories = [created.memory, ...this.memories.filter((item) => item.id !== created.memory.id)];
       await this.load();
     } catch (err) {
       this.error = errorMessage(err, '保存记忆失败');

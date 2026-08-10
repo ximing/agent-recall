@@ -50,6 +50,7 @@ export class McpService extends Service {
       this.freshBaseUrl = created.baseUrl;
       this.name = '';
       this.pendingRevokeId = null;
+      this.clients = [created.client, ...this.clients.filter((item) => item.id !== created.client.id)];
       await this.load();
     } catch (err) {
       this.error = errorMessage(err, '注册客户端失败');

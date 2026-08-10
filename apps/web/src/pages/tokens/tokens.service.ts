@@ -47,6 +47,7 @@ export class TokensService extends Service {
       this.freshSecret = created.secret;
       this.name = '';
       this.pendingRevokeId = null;
+      this.tokens = [created.token, ...this.tokens.filter((item) => item.id !== created.token.id)];
       await this.load();
     } catch (err) {
       this.error = errorMessage(err, '创建令牌失败');
