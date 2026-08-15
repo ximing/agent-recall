@@ -28,7 +28,6 @@ const envSchema = z.object({
   EMBEDDING_BASE_URL: z.string().min(1).default('https://dashscope.aliyuncs.com/api/v1'),
   EMBEDDING_MODEL: z.string().min(1).default('qwen3-vl-embedding'),
   EMBEDDING_DIMENSIONS: z.coerce.number().int().positive().default(2560),
-  REDIS_URL: z.string().default(''),
   COOKIE_SECURE: z.enum(['true', 'false']).default('false'),
 });
 

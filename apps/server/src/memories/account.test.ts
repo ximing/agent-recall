@@ -59,9 +59,22 @@ describe('accounts, memories, and tokens', () => {
       cookie,
       payload: { content: '网页记忆-海盐-改' },
     });
-    expect((edited.body?.memory as { content: string }).content).toBe('网页记忆-海盐-改');
-    const fetched = await call(app, 'GET', `/api/memories/${webMemory.id}`, { cookie });
+    // 编辑 = 新版本：返回新 id，旧版本保留在版本链中
+    const editedMemory = edited.body?.memory as { id: string; content: string; version: number; parentId: string };
+    expect(editedMemory.content).toBe('网页记忆-海盐-改');
+    expect(editedMemory.version).toBe(2);
+    expect(editedMemory.parentId).toBe(webMemory.id);
+    const fetched = await call(app, 'GET', `/api/memories/${editedMemory.id}`, { cookie });
     expect((fetched.body?.memory as { content: string }).content).toBe('网页记忆-海盐-改');
+    // 旧版本仍可回溯
+    const oldFetched = await call(app, 'GET', `/api/memories/${webMemory.id}`, { cookie });
+    expect((oldFetched.body?.memory as { content: string }).content).toBe('网页记忆-海盐');
+    const versions = await call(app, 'GET', `/api/memories/${webMemory.id}/versions`, { cookie });
+    expect((versions.body?.versions as unknown[]).length).toBe(2);
+    // 列表只展示最新版
+    const listed = await call(app, 'GET', '/api/memories', { cookie });
+    expect(JSON.stringify(listed.body)).toContain('网页记忆-海盐-改');
+    expect((listed.body?.memories as Array<{ id: string }>).some((m) => m.id === webMemory.id)).toBe(false);
 
     const other = await call(app, 'POST', '/api/auth/register', {
       payload: { email: 'bea@example.com', password: 'password-bea' },

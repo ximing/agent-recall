@@ -61,9 +61,9 @@ export async function call(
   const headers: Record<string, string> = {};
   if (options.cookie) headers.cookie = `ar_session=${options.cookie}`;
   if (options.token) headers.authorization = `Bearer ${options.token}`;
-  const methodName = method as 'GET' | 'POST' | 'PATCH' | 'DELETE';
+  const methodName = method as 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   const inject = app.inject.bind(app) as (opts: {
-    method: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+    method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
     url: string;
     headers: Record<string, string>;
     payload?: string | Record<string, unknown>;

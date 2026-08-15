@@ -11,12 +11,12 @@ import { startProtocolStandin, type ProtocolStandIn } from '../retrieval/protoco
 import { call, makeDataDir, openTestApp, removeDataDir, sessionCookie, testConfig } from '../test/app-harness.js';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
-const hooksDir = path.join(repoRoot, 'hooks');
+const pluginDir = path.join(repoRoot, 'plugins', 'claude-code');
 
 function scriptFromManifest(command: string): string {
   const match = /"\$\{CLAUDE_PLUGIN_ROOT\}([^"]+)"/.exec(command);
   if (!match?.[1]) throw new Error(`unrecognized hook command: ${command}`);
-  return path.join(hooksDir, match[1].replace(/^\//, ''));
+  return path.join(pluginDir, match[1].replace(/^\//, ''));
 }
 
 function runNode(script: string, payload: unknown, env: NodeJS.ProcessEnv): Promise<{ code: number; stdout: string; stderr: string }> {
@@ -38,7 +38,7 @@ function runNode(script: string, payload: unknown, env: NodeJS.ProcessEnv): Prom
   });
 }
 
-describe('claude-shaped hooks', () => {
+describe('claude-code plugin hooks', () => {
   let dataDir = '';
   let spoolDir = '';
   let app: FastifyInstance;
@@ -91,8 +91,8 @@ describe('claude-shaped hooks', () => {
     };
   }
 
-  it('dedupes a live event, spools when the service is down, and drains one recallable hook memory', async () => {
-    const manifest = JSON.parse(readFileSync(path.join(hooksDir, 'hooks.json'), 'utf8')) as {
+  it('injects recalled context on prompt submit, captures tool events, and summarizes on session end', async () => {
+    const manifest = JSON.parse(readFileSync(path.join(pluginDir, 'hooks', 'hooks.json'), 'utf8')) as {
       hooks: Record<string, { hooks: { type: string; command: string }[] }[]>;
     };
     const events = ['SessionStart', 'UserPromptSubmit', 'PostToolUse', 'SessionEnd'];
@@ -102,61 +102,79 @@ describe('claude-shaped hooks', () => {
       expect(scriptFromManifest(hook?.command ?? '')).toContain('.mjs');
     }
 
-    const sessionScript = scriptFromManifest(manifest.hooks.SessionStart?.[0]?.hooks[0]?.command ?? '');
-    const payload = { session_id: 'sess-alpha', event_id: 'alpha-event-0001', note: 'HOOK_SESSION_ALPHA' };
-    const first = await runNode(sessionScript, payload, hookEnv());
-    const second = await runNode(sessionScript, payload, hookEnv());
-    expect(first.code).toBe(0);
-    expect(second.code).toBe(0);
+    // 先人工沉淀一条项目记忆，供召回注入命中
+    await call(app, 'POST', '/api/memories', {
+      token,
+      payload: { content: '项目约定：检索融合用 RRF，k=60（HOOK_INJECT_TARGET）', type: 'architecture', project: 'demo-proj' },
+    });
 
-    const others: Array<[string, string, string]> = [
-      ['UserPromptSubmit', 'prompt-event-0001', 'HOOK_PROMPT_GAMMA'],
-      ['PostToolUse', 'tool-event-0001', 'HOOK_TOOL_DELTA'],
-      ['SessionEnd', 'end-event-0001', 'HOOK_END_EPSILON'],
-    ];
-    for (const [event, eventId, note] of others) {
-      const script = scriptFromManifest(manifest.hooks[event]?.[0]?.hooks[0]?.command ?? '');
-      const result = await runNode(script, { session_id: 'sess-alpha', event_id: eventId, note }, hookEnv());
-      expect(result.code).toBe(0);
-    }
+    const sessionId = 'sess-plugin-it';
+    const cwd = '/tmp/demo-proj';
 
-    const listed = await call(app, 'GET', '/api/memories', { token });
-    const memories = listed.body?.memories as { content: string; origin: string }[];
-    const alpha = memories.filter((item) => item.content.includes('HOOK_SESSION_ALPHA'));
-    expect(alpha).toHaveLength(1);
-    expect(alpha[0]?.origin).toBe('hook');
-    expect(memories.filter((item) => item.origin === 'hook')).toHaveLength(4);
+    // SessionStart：注册事件 + 注入项目上下文
+    const startScript = scriptFromManifest(manifest.hooks.SessionStart![0]!.hooks[0]!.command);
+    const started = await runNode(startScript, { session_id: sessionId, cwd, source: 'startup' }, hookEnv());
+    expect(started.code).toBe(0);
+    expect(started.stdout).toContain('additionalContext');
+    expect(started.stdout).toContain('HOOK_INJECT_TARGET');
 
-    const spoolPayload = { session_id: 'sess-beta', event_id: 'beta-event-0001', note: 'HOOK_SPOOL_BETA' };
-    const spooled = await runNode(sessionScript, spoolPayload, hookEnv('http://127.0.0.1:9'));
+    // UserPromptSubmit：只召回注入，不落库 prompt
+    const promptScript = scriptFromManifest(manifest.hooks.UserPromptSubmit![0]!.hooks[0]!.command);
+    const prompted = await runNode(promptScript, { session_id: sessionId, cwd, prompt: 'RRF 融合参数是多少' }, hookEnv());
+    expect(prompted.code).toBe(0);
+    expect(prompted.stdout).toContain('additionalContext');
+    expect(prompted.stdout).toContain('HOOK_INJECT_TARGET');
+
+    // PostToolUse：工具观察入库（带 sessionId/project/toolName）
+    const toolScript = scriptFromManifest(manifest.hooks.PostToolUse![0]!.hooks[0]!.command);
+    const tooled = await runNode(
+      toolScript,
+      {
+        session_id: sessionId,
+        cwd,
+        tool_name: 'Edit',
+        tool_input: { file_path: 'src/retrieval/rrf.ts' },
+        tool_response: { ok: true, detail: 'k adjusted to 60' },
+      },
+      hookEnv(),
+    );
+    expect(tooled.code).toBe(0);
+
+    // SessionEnd：事件入库，服务端自动生成会话摘要
+    const endScript = scriptFromManifest(manifest.hooks.SessionEnd![0]!.hooks[0]!.command);
+    const ended = await runNode(endScript, { session_id: sessionId, cwd, reason: 'user_exit' }, hookEnv());
+    expect(ended.code).toBe(0);
+
+    const timeline = await call(app, 'GET', `/api/sessions/${sessionId}`, { token });
+    const items = timeline.body?.memories as Array<{ origin: string; content: string; sessionId: string }>;
+    // SessionStart + PostToolUse + SessionEnd 三条事件（UserPromptSubmit 不落库）
+    const hookEvents = items.filter((m) => m.origin === 'hook');
+    expect(hookEvents.length).toBe(3);
+    expect(items.some((m) => m.content.includes('RRF 融合参数是多少'))).toBe(false);
+    expect(items.some((m) => m.content.includes('[PostToolUse] Edit'))).toBe(true);
+    const summary = items.find((m) => m.origin === 'summary');
+    expect(summary).toBeTruthy();
+    expect(summary!.content).toContain('会话摘要');
+
+    // 断网落 spool，恢复后 drain 补投
+    const spooled = await runNode(
+      toolScript,
+      {
+        session_id: sessionId,
+        cwd,
+        tool_name: 'Bash',
+        tool_input: { command: 'pnpm test' },
+        tool_response: '22 passed HOOK_SPOOL_MARKER',
+      },
+      hookEnv('http://127.0.0.1:9'),
+    );
     expect(spooled.code).toBe(0);
-    const spoolFile = path.join(spoolDir, 'events.jsonl');
-    const spoolText = readFileSync(spoolFile, 'utf8');
-    expect(spoolText).toContain('HOOK_SPOOL_BETA');
-    const beforeDrain = await call(app, 'GET', '/api/memories', { token });
-    expect(JSON.stringify(beforeDrain.body)).not.toContain('HOOK_SPOOL_BETA');
+    expect(readFileSync(path.join(spoolDir, 'events.jsonl'), 'utf8')).toContain('HOOK_SPOOL_MARKER');
 
-    const drained = await runNode(path.join(hooksDir, 'drain.mjs'), {}, hookEnv());
+    const drained = await runNode(path.join(pluginDir, 'scripts', 'drain.mjs'), {}, hookEnv());
     expect(drained.code).toBe(0);
     expect(JSON.parse(drained.stdout).delivered).toBe(1);
-    const after = await call(app, 'GET', '/api/memories', { token });
-    const spoolHits = (after.body?.memories as { content: string; origin: string }[]).filter((item) =>
-      item.content.includes('HOOK_SPOOL_BETA'),
-    );
-    expect(spoolHits).toHaveLength(1);
-    expect(spoolHits[0]?.origin).toBe('hook');
-
-    const recalled = await call(app, 'POST', '/api/memories/recall', { token, payload: { query: 'HOOK_SPOOL_BETA' } });
-    const recalledHit = (recalled.body?.memories as { content: string }[]).find((item) =>
-      item.content.includes('HOOK_SPOOL_BETA'),
-    );
-    expect(recalledHit?.content).toContain('HOOK_SPOOL_BETA');
-
-    const drainedAgain = await runNode(path.join(hooksDir, 'drain.mjs'), {}, hookEnv());
-    expect(JSON.parse(drainedAgain.stdout).delivered).toBe(0);
-    const still = await call(app, 'GET', '/api/memories', { token });
-    expect(
-      (still.body?.memories as { content: string }[]).filter((item) => item.content.includes('HOOK_SPOOL_BETA')),
-    ).toHaveLength(1);
+    const after = await call(app, 'GET', `/api/sessions/${sessionId}`, { token });
+    expect(JSON.stringify(after.body)).toContain('HOOK_SPOOL_MARKER');
   });
 });

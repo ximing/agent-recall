@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { recallLogs } from '../db/schema.js';
 import { createEmbeddingClient } from './embedding.js';
 import { createRetrieval } from './ports.js';
 import { embedDeterministic, startProtocolStandin, type ProtocolStandIn } from './protocol-standin.js';
@@ -127,5 +128,120 @@ describe('two-path recall', () => {
     const found = await call(app, 'POST', '/api/memories/smart-search', { cookie, payload: { query: '桂花' } });
     const hit = (found.body?.memories as { id: string; content: string }[]).find((item) => item.id === created.id);
     expect(hit?.content).toBe('稍后才能召回的桂花');
+  });
+
+  it('reranks fused candidates only when enabled in settings, and falls back to RRF on failure', async () => {
+    const defaults = await call(app, 'GET', '/api/settings', { cookie });
+    expect(defaults.body?.settings).toMatchObject({
+      rerankEnabled: false,
+      rerankModel: 'gte-rerank-v2',
+      hasRerankApiKey: false,
+    });
+
+    const pine = await create('精排后置的松');
+    const plum = await create('精排前置的梅');
+    standin.control.script = { meiliIds: [pine.id, plum.id], qdrantIds: [], rerankOrder: [1, 0] };
+
+    // 未启用：不发 rerank 请求，保持 RRF 顺序
+    const before = standin.control.rerankRequests.length;
+    const plain = await call(app, 'POST', '/api/memories/recall', { cookie, payload: { query: '精排' } });
+    expect(standin.control.rerankRequests.length).toBe(before);
+    expect((plain.body?.memories as { id: string }[]).map((item) => item.id)).toEqual([pine.id, plum.id]);
+
+    // 启用 rerank：候选顺序按精排结果翻转，请求带 model 和 Bearer key
+    const saved = await call(app, 'PUT', '/api/settings', {
+      cookie,
+      payload: {
+        rerankEnabled: true,
+        rerankBaseUrl: standin.url,
+        rerankModel: 'gte-rerank-v2',
+        rerankApiKey: 'rk-test-secret',
+      },
+    });
+    expect(saved.status).toBe(200);
+    expect(saved.body?.settings).toMatchObject({ hasRerankApiKey: true, rerankApiKeyPreview: 'rk-tes…' });
+
+    const reranked = await call(app, 'POST', '/api/memories/recall', { cookie, payload: { query: '精排' } });
+    expect((reranked.body?.memories as { id: string }[]).map((item) => item.id)).toEqual([plum.id, pine.id]);
+    const recorded = standin.control.rerankRequests.at(-1);
+    expect(recorded?.url).toBe('/services/rerank/text-rerank/text-rerank');
+    expect(recorded?.authorization).toBe('Bearer rk-test-secret');
+    expect(recorded?.body).toMatchObject({ model: 'gte-rerank-v2' });
+
+    // 精排失败：接口不挂，回退 RRF 顺序
+    standin.control.script = { meiliIds: [pine.id, plum.id], qdrantIds: [], rerankStatus: 500 };
+    const degraded = await call(app, 'POST', '/api/memories/recall', { cookie, payload: { query: '精排' } });
+    expect(degraded.status).toBe(200);
+    expect((degraded.body?.memories as { id: string }[]).map((item) => item.id)).toEqual([pine.id, plum.id]);
+
+    await call(app, 'PUT', '/api/settings', { cookie, payload: { rerankEnabled: false, rerankApiKey: '' } });
+    const cleared = await call(app, 'GET', '/api/settings', { cookie });
+    expect(cleared.body?.settings).toMatchObject({ rerankEnabled: false, hasRerankApiKey: false });
+    standin.control.script = null;
+  });
+
+  it('records recall history with strategy, and sweeps entries older than 30 days', async () => {
+    // 埋一条 31 天前的旧日志，验证滚动清理
+    const staleId = randomUUID();
+    await app.ctx.db.insert(recallLogs).values({
+      id: staleId,
+      userId,
+      query: '过期查询',
+      strategy: 'rrf',
+      rerankModel: null,
+      rerankApplied: false,
+      results: [],
+      latencyMs: 1,
+      createdAt: new Date(Date.now() - 31 * 24 * 3600 * 1000),
+    });
+
+    await call(app, 'POST', '/api/memories/recall', { cookie, payload: { query: '历史沉淀测试' } });
+    const listed = await call(app, 'GET', '/api/memories/recall-logs', { cookie });
+    const logs = (listed.body?.logs ?? []) as { id: string; query: string; strategy: string; rerankApplied: boolean }[];
+    const latest = logs[0];
+    expect(latest?.query).toBe('历史沉淀测试');
+    expect(latest?.strategy).toBe('rrf');
+    expect(latest?.rerankApplied).toBe(false);
+    expect(logs.some((log) => log.id === staleId)).toBe(false);
+
+    // 启用精排后，策略、生效标记与分数都应体现在日志里
+    await call(app, 'PUT', '/api/settings', {
+      cookie,
+      payload: { rerankEnabled: true, rerankBaseUrl: standin.url, rerankApiKey: 'rk-log-test' },
+    });
+    standin.control.script = { rerankOrder: undefined };
+    await call(app, 'POST', '/api/memories/recall', { cookie, payload: { query: '精排日志' } });
+    const after = await call(app, 'GET', '/api/memories/recall-logs', { cookie });
+    const rerankedLog = (
+      after.body?.logs as {
+        query: string;
+        strategy: string;
+        rerankApplied: boolean;
+        rerankModel: string | null;
+        rerankError: string | null;
+        results: { score: number | null }[];
+      }[]
+    )[0];
+    expect(rerankedLog?.query).toBe('精排日志');
+    expect(rerankedLog?.strategy).toBe('rrf+rerank');
+    expect(rerankedLog?.rerankModel).toBe('gte-rerank-v2');
+    expect(rerankedLog?.rerankError).toBeNull();
+    expect(rerankedLog?.results.length).toBeGreaterThan(0);
+    expect(rerankedLog?.results.every((result) => typeof result.score === 'number')).toBe(true);
+
+    // 精排失败：日志记下失败原因，结果分数为空
+    standin.control.script = { rerankStatus: 500 };
+    await call(app, 'POST', '/api/memories/recall', { cookie, payload: { query: '精排失败日志' } });
+    const failed = await call(app, 'GET', '/api/memories/recall-logs', { cookie });
+    const failedLog = (
+      failed.body?.logs as { query: string; rerankApplied: boolean; rerankError: string | null; results: { score: number | null }[] }[]
+    )[0];
+    expect(failedLog?.query).toBe('精排失败日志');
+    expect(failedLog?.rerankApplied).toBe(false);
+    expect(failedLog?.rerankError).toContain('500');
+    expect(failedLog?.results.every((result) => result.score === null)).toBe(true);
+
+    await call(app, 'PUT', '/api/settings', { cookie, payload: { rerankEnabled: false, rerankApiKey: '' } });
+    standin.control.script = null;
   });
 });

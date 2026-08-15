@@ -5,6 +5,9 @@ export interface StandInScript {
   qdrantStatus?: number;
   meiliIds?: string[];
   qdrantIds?: string[];
+  rerankStatus?: number;
+  /** 指定精排返回的候选顺序（下标按请求 documents 顺序） */
+  rerankOrder?: number[];
 }
 
 export interface RecordedEmbedding {
@@ -20,6 +23,7 @@ export interface StandInControl {
   embeddingRequests: RecordedEmbedding[];
   meiliSearches: unknown[];
   qdrantQueries: unknown[];
+  rerankRequests: RecordedEmbedding[];
   settings: unknown[];
 }
 
@@ -107,6 +111,7 @@ export async function startProtocolStandin(): Promise<ProtocolStandIn> {
     embeddingRequests: [],
     meiliSearches: [],
     qdrantQueries: [],
+    rerankRequests: [],
     settings: [],
   };
   const indexes = new Map<string, Map<string, Doc>>();
@@ -150,6 +155,33 @@ export async function startProtocolStandin(): Promise<ProtocolStandIn> {
       }));
       if (control.reverseIndexes) rows = [...rows].reverse();
       send(res, 200, { output: { embeddings: rows }, usage: { input_tokens: contents.length } });
+      return;
+    }
+
+    if (method === 'POST' && pathname === '/services/rerank/text-rerank/text-rerank') {
+      control.rerankRequests.push({
+        url: pathname,
+        authorization: typeof req.headers.authorization === 'string' ? req.headers.authorization : null,
+        body,
+      });
+      if (control.script?.rerankStatus && control.script.rerankStatus >= 400) {
+        send(res, control.script.rerankStatus, { message: 'rerank failed' });
+        return;
+      }
+      const input = body as { input?: { query?: string; documents?: string[] }; parameters?: { top_n?: number } };
+      const query = input.input?.query ?? '';
+      const documents = input.input?.documents ?? [];
+      const topN = input.parameters?.top_n ?? documents.length;
+      const indexes = control.script?.rerankOrder ?? documents.map((_, index) => index);
+      // 默认按 query 字符覆盖率打分；rerankOrder 指定时按给定顺序排
+      const scored = documents.map((text, index) => {
+        const order = indexes.indexOf(index);
+        const overlap = [...query].filter((char) => text.includes(char)).length;
+        const score = order >= 0 ? 1 - order * 0.01 : query.length > 0 ? overlap / query.length : 0;
+        return { index, relevance_score: score };
+      });
+      scored.sort((left, right) => right.relevance_score - left.relevance_score);
+      send(res, 200, { output: { results: scored.slice(0, topN) }, usage: { total_tokens: query.length } });
       return;
     }
 

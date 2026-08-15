@@ -117,24 +117,169 @@ describe('mcp stdio', () => {
       rpc.notify('notifications/initialized');
       const tools = await rpc.request('tools/list');
       const names = (tools.result?.tools ?? []).map((tool) => tool.name);
-      expect(names).toEqual(expect.arrayContaining(['memory_save', 'memory_recall', 'memory_smart_search']));
+      // agentmemory 完整工具面对齐（52）+ 本地超集
+      expect(names).toEqual(
+        expect.arrayContaining([
+          'memory_save',
+          'memory_remember',
+          'memory_lesson_save',
+          'memory_update',
+          'memory_import',
+          'memory_recall',
+          'memory_smart_search',
+          'memory_context',
+          'memory_list',
+          'memory_get',
+          'memory_versions',
+          'memory_sessions',
+          'memory_session_timeline',
+          'memory_stats',
+          'memory_export',
+          'memory_forget',
+          'memory_batch_forget',
+          'memory_auto_forget',
+          'memory_action_create',
+          'memory_action_update',
+          'memory_audit',
+          'memory_checkpoint',
+          'memory_claude_bridge_sync',
+          'memory_commit_lookup',
+          'memory_commits',
+          'memory_compress_file',
+          'memory_consolidate',
+          'memory_crystallize',
+          'memory_diagnose',
+          'memory_facet_query',
+          'memory_facet_tag',
+          'memory_file_history',
+          'memory_frontier',
+          'memory_governance_delete',
+          'memory_graph_query',
+          'memory_heal',
+          'memory_insight_list',
+          'memory_lease',
+          'memory_lesson_delete',
+          'memory_lesson_recall',
+          'memory_mesh_sync',
+          'memory_next',
+          'memory_obsidian_export',
+          'memory_patterns',
+          'memory_profile',
+          'memory_reflect',
+          'memory_relations',
+          'memory_routine_run',
+          'memory_sentinel_create',
+          'memory_sentinel_trigger',
+          'memory_signal_read',
+          'memory_signal_send',
+          'memory_sketch_create',
+          'memory_sketch_promote',
+          'memory_slot_append',
+          'memory_slot_create',
+          'memory_slot_delete',
+          'memory_slot_get',
+          'memory_slot_list',
+          'memory_slot_replace',
+          'memory_snapshot_create',
+          'memory_team_feed',
+          'memory_team_share',
+          'memory_timeline',
+          'memory_verify',
+          'memory_vision_search',
+        ]),
+      );
       const saveTool = tools.result?.tools?.find((tool) => tool.name === 'memory_save');
       const recallTool = tools.result?.tools?.find((tool) => tool.name === 'memory_recall');
-      const smartTool = tools.result?.tools?.find((tool) => tool.name === 'memory_smart_search');
       expect(saveTool?.inputSchema?.required).toContain('content');
       expect(recallTool?.inputSchema?.required).toContain('query');
-      expect(smartTool?.inputSchema?.required).toContain('query');
 
       const saved = await rpc.request('tools/call', {
         name: 'memory_save',
-        arguments: { content: 'MCP保存的星图' },
+        arguments: { content: 'MCP保存的星图', type: 'fact', tags: ['mcp-test'], project: 'demo' },
       });
       expect(saved.result?.content?.[0]?.text).toContain('MCP保存的星图');
+      const savedPayload = JSON.parse(saved.result!.content![0]!.text!) as { memory: { id: string } };
+
       const searched = await rpc.request('tools/call', {
         name: 'memory_smart_search',
         arguments: { query: '星图' },
       });
       expect(searched.result?.content?.[0]?.text).toContain('MCP保存的星图');
+
+      // 生命周期：update → versions → get → context → stats → forget
+      const updated = await rpc.request('tools/call', {
+        name: 'memory_update',
+        arguments: { id: savedPayload.memory.id, content: 'MCP保存的星图-第二版' },
+      });
+      const updatedPayload = JSON.parse(updated.result!.content![0]!.text!) as {
+        memory: { id: string; version: number };
+      };
+      expect(updatedPayload.memory.version).toBe(2);
+      const versions = await rpc.request('tools/call', {
+        name: 'memory_versions',
+        arguments: { id: savedPayload.memory.id },
+      });
+      expect(versions.result?.content?.[0]?.text).toContain('MCP保存的星图');
+      const ctx = await rpc.request('tools/call', {
+        name: 'memory_context',
+        arguments: { query: '星图', tokenBudget: 500 },
+      });
+      expect(ctx.result?.content?.[0]?.text).toContain('星图');
+      const stats = await rpc.request('tools/call', { name: 'memory_stats' });
+      expect(stats.result?.content?.[0]?.text).toContain('total');
+      const forgotten = await rpc.request('tools/call', {
+        name: 'memory_forget',
+        arguments: { id: updatedPayload.memory.id },
+      });
+      if (!forgotten.result) console.error('memory_forget error:', JSON.stringify(forgotten.error));
+      expect(forgotten.result?.content?.[0]?.text).toContain('deleted');
+
+      // 子系统工具端到端：KV checkpoint/lease/signal、facet、graph、diagnose、snapshot
+      const checkpoint = await rpc.request('tools/call', {
+        name: 'memory_checkpoint',
+        arguments: { name: 'it-checkpoint', state: { step: 1 } },
+      });
+      expect(checkpoint.result?.content?.[0]?.text).toContain('it-checkpoint');
+
+      const leaseA = await rpc.request('tools/call', {
+        name: 'memory_lease',
+        arguments: { name: 'it-lease', ttlSeconds: 60 },
+      });
+      expect(leaseA.result?.content?.[0]?.text).toContain('"acquired":true');
+      const leaseB = await rpc.request('tools/call', {
+        name: 'memory_lease',
+        arguments: { name: 'it-lease', ttlSeconds: 60 },
+      });
+      expect(leaseB.result?.content?.[0]?.text).toContain('"acquired":false');
+
+      await rpc.request('tools/call', {
+        name: 'memory_signal_send',
+        arguments: { name: 'deploy', data: { ok: true } },
+      });
+      const signal = await rpc.request('tools/call', {
+        name: 'memory_signal_read',
+        arguments: { name: 'deploy' },
+      });
+      expect(signal.result?.content?.[0]?.text).toContain('"ok":true');
+
+      await call(app, 'POST', '/api/memories', {
+        token: secret,
+        payload: { content: '图谱节点目标-碧玺', tags: ['graph-it'], project: 'graph-demo' },
+      });
+      const graph = await rpc.request('tools/call', {
+        name: 'memory_graph_query',
+        arguments: { query: 'graph-it' },
+      });
+      expect(graph.result?.content?.[0]?.text).toContain('graph-it');
+
+      const diagnose = await rpc.request('tools/call', { name: 'memory_diagnose' });
+      expect(diagnose.result?.content?.[0]?.text).toMatch(/ok|problems/);
+
+      const snapshot = await rpc.request('tools/call', {
+        name: 'memory_snapshot_create',
+        arguments: { note: 'it' },
+      });
+      expect(snapshot.result?.content?.[0]?.text).toContain('memoryCount');
 
       await call(app, 'POST', `/api/tokens/${tokenId}/revoke`, { cookie });
       const denied = await rpc.request('tools/call', {
