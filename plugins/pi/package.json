@@ -1,0 +1,31 @@
+{
+  "name": "agent-recall-pi-extension",
+  "version": "0.1.0",
+  "private": true,
+  "description": "agent-recall extension for the pi coding agent: memory recall on agent start, tool-use capture, session lifecycle events, memory_recall tool, /agent-recall-status command",
+  "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "pi-package",
+    "agent-recall",
+    "memory"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ximing/agent-recall.git",
+    "directory": "plugins/pi"
+  },
+  "files": [
+    "index.ts",
+    "README.md"
+  ],
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
+  }
+}

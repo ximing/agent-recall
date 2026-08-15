@@ -1,0 +1,27 @@
+{
+  "name": "agent-recall",
+  "version": "0.1.0",
+  "description": "Cross-session memory for Codex CLI via the agent-recall service. Captures tool usage and session lifecycle, injects recalled memories on session start and prompt submit. Requires Node.js 18+ and a running agent-recall server.",
+  "author": {
+    "name": "ximing",
+    "url": "https://github.com/ximing"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/ximing/agent-recall",
+  "repository": "https://github.com/ximing/agent-recall",
+  "hooks": "./hooks/hooks.json",
+  "interface": {
+    "displayName": "Agent Recall",
+    "shortDescription": "Memory across coding sessions",
+    "longDescription": "Recall past decisions and session context, and record tool activity, through a local agent-recall server. Requires Node.js 18+ and a running agent-recall server (default http://127.0.0.1:8787). Set AGENT_RECALL_TOKEN when the server requires authentication.",
+    "developerName": "ximing",
+    "websiteURL": "https://github.com/ximing/agent-recall",
+    "supportURL": "https://github.com/ximing/agent-recall/issues",
+    "category": "Developer Tools",
+    "capabilities": ["Cross-session memory", "Tool-use capture", "Session summaries"],
+    "defaultPrompt": [
+      "What do you remember about this project from previous sessions?",
+      "Recall decisions relevant to this repository."
+    ]
+  }
+}

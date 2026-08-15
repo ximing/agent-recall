@@ -1,0 +1,12 @@
+{
+  "name": "agent-recall-capture",
+  "version": "0.1.0",
+  "description": "OpenCode plugin for agent-recall — captures session lifecycle (SessionStart/SessionEnd), tool results (PostToolUse with toolName), and injects recalled memory from POST /api/hooks/context on session start and every prompt. Supports OpenCode 1.x (server hooks) and 2.x (setup hooks) from a single file.",
+  "author": {
+    "name": "ximing",
+    "url": "https://github.com/ximing"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/ximing/agent-recall",
+  "repository": "https://github.com/ximing/agent-recall"
+}
