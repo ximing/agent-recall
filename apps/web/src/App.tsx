@@ -2,6 +2,8 @@ import { Route, Routes } from 'react-router';
 import LoginPage from '@/pages/login';
 import McpPage from '@/pages/mcp';
 import MemoriesPage from '@/pages/memories';
+import SessionsPage from '@/pages/sessions';
+import SettingsPage from '@/pages/settings';
 import TokensPage from '@/pages/tokens';
 import { ROUTES } from '@/routes';
 import { RequireAuth } from '@/shell/RequireAuth';
@@ -13,8 +15,10 @@ export function App() {
       <Route path="/" element={<RequireAuth />}>
         <Route index element={<MemoriesPage />} />
         <Route path={ROUTES.memories.slice(1)} element={<MemoriesPage />} />
+        <Route path={ROUTES.sessions.slice(1)} element={<SessionsPage />} />
         <Route path={ROUTES.tokens.slice(1)} element={<TokensPage />} />
         <Route path={ROUTES.mcp.slice(1)} element={<McpPage />} />
+        <Route path={ROUTES.settings.slice(1)} element={<SettingsPage />} />
       </Route>
     </Routes>
   );

@@ -1,4 +1,20 @@
-import type { McpClientPublic, MemoryPublic, TokenPublic, UserPublic } from '@agent-recall/dto';
+import type {
+  BatchForgetInput,
+  ExportResult,
+  ImportInput,
+  McpClientPublic,
+  MemoryCreateInput,
+  MemoryListQuery,
+  MemoryPublic,
+  MemoryStats,
+  MemoryUpdateInput,
+  RecallLogPublic,
+  SessionSummaryPublic,
+  SettingsPublic,
+  SettingsUpdateInput,
+  TokenPublic,
+  UserPublic,
+} from '@agent-recall/dto';
 
 export class ApiError extends Error {
   readonly status: number;
@@ -33,6 +49,23 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return data as T;
 }
 
+/** 记忆列表查询参数：数组逗号分隔，空值省略 */
+function memoryQueryString(query: MemoryListQuery = {}): string {
+  const params = new URLSearchParams();
+  if (query.origin?.length) params.set('origin', query.origin.join(','));
+  if (query.type?.length) params.set('type', query.type.join(','));
+  if (query.tags?.length) params.set('tags', query.tags.join(','));
+  if (query.project) params.set('project', query.project);
+  if (query.sessionId) params.set('sessionId', query.sessionId);
+  if (query.createdAfter) params.set('createdAfter', query.createdAfter);
+  if (query.createdBefore) params.set('createdBefore', query.createdBefore);
+  if (query.includeExpired) params.set('includeExpired', 'true');
+  if (query.limit !== undefined) params.set('limit', String(query.limit));
+  if (query.offset !== undefined) params.set('offset', String(query.offset));
+  const qs = params.toString();
+  return qs ? `?${qs}` : '';
+}
+
 export const api = {
   register: (email: string, password: string) =>
     request<{ user: UserPublic }>('/api/auth/register', {
@@ -46,15 +79,42 @@ export const api = {
     }),
   logout: () => request<void>('/api/auth/logout', { method: 'POST' }),
   me: () => request<{ user: UserPublic }>('/api/auth/me'),
-  listMemories: () => request<{ memories: MemoryPublic[] }>('/api/memories'),
-  createMemory: (content: string) =>
-    request<{ memory: MemoryPublic }>('/api/memories', { method: 'POST', body: JSON.stringify({ content }) }),
-  updateMemory: (id: string, content: string) =>
+  listMemories: (query?: MemoryListQuery) =>
+    request<{ memories: MemoryPublic[] }>(`/api/memories${memoryQueryString(query)}`),
+  recallMemories: (query: string, limit = 50) =>
+    request<{ memories: MemoryPublic[] }>('/api/memories/recall', {
+      method: 'POST',
+      body: JSON.stringify({ query, limit }),
+    }),
+  createMemory: (input: MemoryCreateInput) =>
+    request<{ memory: MemoryPublic }>('/api/memories', { method: 'POST', body: JSON.stringify(input) }),
+  updateMemory: (id: string, input: MemoryUpdateInput) =>
     request<{ memory: MemoryPublic }>(`/api/memories/${id}`, {
       method: 'PATCH',
-      body: JSON.stringify({ content }),
+      body: JSON.stringify(input),
     }),
   deleteMemory: (id: string) => request<void>(`/api/memories/${id}`, { method: 'DELETE' }),
+  listMemoryVersions: (id: string) => request<{ versions: MemoryPublic[] }>(`/api/memories/${id}/versions`),
+  batchForget: (input: BatchForgetInput) =>
+    request<{ matched: number; deleted: number }>('/api/memories/batch-forget', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+  autoForget: (dryRun?: boolean) =>
+    request<{ expired: number; stale: number; deleted: number }>('/api/memories/auto-forget', {
+      method: 'POST',
+      body: JSON.stringify({ dryRun }),
+    }),
+  getMemoryStats: () => request<{ stats: MemoryStats }>('/api/memories/stats'),
+  exportMemories: () => request<ExportResult>('/api/memories/export'),
+  importMemories: (input: ImportInput) =>
+    request<{ imported: number; skipped: number; replaced: number }>('/api/memories/import', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+  listSessions: () => request<{ sessions: SessionSummaryPublic[] }>('/api/sessions'),
+  getSessionMemories: (sessionId: string) =>
+    request<{ memories: MemoryPublic[] }>(`/api/sessions/${encodeURIComponent(sessionId)}`),
   listTokens: () => request<{ tokens: TokenPublic[] }>('/api/tokens'),
   createToken: (name: string) =>
     request<{ token: TokenPublic; secret: string }>('/api/tokens', {
@@ -70,6 +130,10 @@ export const api = {
     }),
   revokeMcpClient: (id: string) =>
     request<{ client: McpClientPublic }>(`/api/mcp/clients/${id}/revoke`, { method: 'POST' }),
+  getSettings: () => request<{ settings: SettingsPublic }>('/api/settings'),
+  updateSettings: (input: SettingsUpdateInput) =>
+    request<{ settings: SettingsPublic }>('/api/settings', { method: 'PUT', body: JSON.stringify(input) }),
+  listRecallLogs: () => request<{ logs: RecallLogPublic[] }>('/api/memories/recall-logs'),
 };
 
 export function errorMessage(err: unknown, fallback: string): string {

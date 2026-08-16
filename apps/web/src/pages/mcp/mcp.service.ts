@@ -1,6 +1,7 @@
 import type { McpClientPublic } from '@agent-recall/dto';
 import { Service } from '@rabjs/react';
 import { api, errorMessage } from '@/api/client';
+import { copyText } from '@/utils/clipboard';
 
 export class McpService extends Service {
   clients: McpClientPublic[] = [];
@@ -9,6 +10,7 @@ export class McpService extends Service {
   freshBaseUrl: string | null = null;
   pendingRevokeId: string | null = null;
   error: string | null = null;
+  copied = false;
 
   setName(value: string): void {
     this.name = value;
@@ -17,6 +19,12 @@ export class McpService extends Service {
   dismissConfig(): void {
     this.freshConfig = null;
     this.freshBaseUrl = null;
+    this.copied = false;
+  }
+
+  async copyConfig(): Promise<void> {
+    if (!this.freshConfig) return;
+    this.copied = await copyText(this.freshConfig);
   }
 
   askRevoke(id: string): void {

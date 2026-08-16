@@ -1,6 +1,7 @@
 import type { TokenPublic } from '@agent-recall/dto';
 import { Service } from '@rabjs/react';
 import { api, errorMessage } from '@/api/client';
+import { copyText } from '@/utils/clipboard';
 
 export class TokensService extends Service {
   tokens: TokenPublic[] = [];
@@ -8,6 +9,7 @@ export class TokensService extends Service {
   freshSecret: string | null = null;
   pendingRevokeId: string | null = null;
   error: string | null = null;
+  copied = false;
 
   setName(value: string): void {
     this.name = value;
@@ -15,6 +17,12 @@ export class TokensService extends Service {
 
   dismissSecret(): void {
     this.freshSecret = null;
+    this.copied = false;
+  }
+
+  async copySecret(): Promise<void> {
+    if (!this.freshSecret) return;
+    this.copied = await copyText(this.freshSecret);
   }
 
   askRevoke(id: string): void {

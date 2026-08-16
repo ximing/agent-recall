@@ -12,9 +12,18 @@
   "dependencies": {
     "@agent-recall/dto": "workspace:*",
     "@rabjs/react": "^9.4.1",
+    "@tiptap/extension-link": "^2.27.3",
+    "@tiptap/extension-placeholder": "^2.27.3",
+    "@tiptap/pm": "^2.27.3",
+    "@tiptap/react": "^2.27.3",
+    "@tiptap/starter-kit": "^2.27.3",
+    "lucide-react": "^1.53.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "react-router": "^7.13.0"
+    "react-markdown": "^10.1.0",
+    "react-router": "^7.13.0",
+    "remark-gfm": "^4.0.1",
+    "tiptap-markdown": "^0.8.10"
   },
   "devDependencies": {
     "@types/node": "^22.13.4",
