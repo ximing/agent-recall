@@ -15,6 +15,7 @@
     "start:prod": "pnpm --filter @agent-recall/server start:prod",
     "build": "pnpm --filter @agent-recall/dto build && pnpm -r --filter @agent-recall/server --filter @agent-recall/mcp --filter @agent-recall/web build",
     "typecheck": "pnpm --filter @agent-recall/dto build && pnpm -r --filter @agent-recall/dto --filter @agent-recall/server --filter @agent-recall/mcp --filter @agent-recall/web typecheck",
-    "test": "pnpm --filter @agent-recall/dto build && pnpm --filter @agent-recall/server test"
+    "test": "pnpm --filter @agent-recall/dto build && pnpm --filter @agent-recall/server test",
+    "eval": "pnpm --filter @agent-recall/dto build && pnpm --filter @agent-recall/server exec tsx ../../eval/run.ts"
   }
 }
