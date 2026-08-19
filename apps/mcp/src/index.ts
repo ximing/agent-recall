@@ -1684,8 +1684,66 @@ async function callTool(params: Record<string, unknown>): Promise<unknown> {
   }
 }
 
-async function handle(method: string, params: Record<string, unknown>): Promise<unknown> {
-  if (method === 'initialize') {
+/**
+ * 工具面 profile（AGENT_RECALL_MCP_PROFILE）：控制 tools/list 暴露的子集，
+ * 避免 66 个工具 schema（≈29KB / 8k tokens）常驻宿主上下文。
+ * - core：12 个日常工具（≈5KB）
+ * - standard：core + 生命周期/会话/治理（25 个）
+ * - full：全部 66 个（默认，保持兼容）
+ * 被 profile 隐藏的工具在 tools/call 时报错并提示切换方式。
+ */
+const CORE_TOOL_NAMES = [
+  'memory_save',
+  'memory_remember',
+  'memory_recall',
+  'memory_smart_search',
+  'memory_context',
+  'memory_list',
+  'memory_get',
+  'memory_update',
+  'memory_forget',
+  'memory_stats',
+  'memory_lesson_save',
+  'memory_lesson_recall',
+];
+
+const STANDARD_EXTRA_NAMES = [
+  'memory_sessions',
+  'memory_session_timeline',
+  'memory_versions',
+  'memory_export',
+  'memory_import',
+  'memory_batch_forget',
+  'memory_auto_forget',
+  'memory_checkpoint',
+  'memory_sketch_create',
+  'memory_sketch_promote',
+  'memory_crystallize',
+  'memory_snapshot_create',
+  'memory_governance_delete',
+];
+
+type ToolProfile = 'core' | 'standard' | 'full';
+
+function profile(): ToolProfile {
+  const raw = (process.env.AGENT_RECALL_MCP_PROFILE ?? 'full').trim().toLowerCase();
+  return raw === 'core' || raw === 'standard' ? raw : 'full';
+}
+
+function visibleToolNames(): Set<string> {
+  const p = profile();
+  if (p === 'full') return new Set(TOOLS.map((tool) => tool.name));
+  const names = new Set(CORE_TOOL_NAMES);
+  if (p === 'standard') for (const name of STANDARD_EXTRA_NAMES) names.add(name);
+  return names;
+}
+
+function visibleTools(): typeof TOOLS {
+  const names = visibleToolNames();
+  return TOOLS.filter((tool) => names.has(tool.name));
+}
+
+async function handle(method: string, params: Record<string, unknown>): Promise<unknown> {  if (method === 'initialize') {
     const protocolVersion = typeof params.protocolVersion === 'string' ? params.protocolVersion : '2024-11-05';
     return {
       protocolVersion,
@@ -1696,10 +1754,17 @@ async function handle(method: string, params: Record<string, unknown>): Promise<
   if (method === 'notifications/initialized' || method === 'initialized') return {};
   if (method === 'tools/list') {
     await api('/api/auth/me');
-    return { tools: TOOLS };
+    return { tools: visibleTools() };
   }
   if (method === 'tools/call') {
     await api('/api/auth/me');
+    const name = typeof params.name === 'string' ? params.name : '';
+    if (!visibleToolNames().has(name)) {
+      throw new JsonRpcError(
+        -32602,
+        `Tool ${name} is hidden by AGENT_RECALL_MCP_PROFILE=${profile()}; set AGENT_RECALL_MCP_PROFILE=full to enable it`,
+      );
+    }
     return callTool(params);
   }
   throw new JsonRpcError(-32601, `Method not found: ${method}`);

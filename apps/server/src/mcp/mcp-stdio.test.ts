@@ -19,10 +19,10 @@ interface RpcMessage {
   error?: { code?: number; message?: string };
 }
 
-function startMcp(url: string, token: string): ChildProcessWithoutNullStreams {
+function startMcp(url: string, token: string, extraEnv: NodeJS.ProcessEnv = {}): ChildProcessWithoutNullStreams {
   return spawn(process.execPath, ['--import', 'tsx', 'src/index.ts'], {
     cwd: mcpRoot,
-    env: { ...process.env, AGENT_RECALL_URL: url, AGENT_RECALL_TOKEN: token },
+    env: { ...process.env, AGENT_RECALL_URL: url, AGENT_RECALL_TOKEN: token, ...extraEnv },
     stdio: ['pipe', 'pipe', 'pipe'],
   });
 }
@@ -287,6 +287,37 @@ describe('mcp stdio', () => {
         arguments: { query: '星图' },
       });
       expect(denied.error?.message).toBe('Unauthorized');
+    } finally {
+      child.kill('SIGTERM');
+    }
+  });
+
+  it('narrows the tool surface with AGENT_RECALL_MCP_PROFILE=core and rejects hidden tools', async () => {
+    const created = await call(app, 'POST', '/api/tokens', { cookie, payload: { name: 'stdio-profile' } });
+    const secret = String(created.body?.secret);
+    const child = startMcp(base, secret, { AGENT_RECALL_MCP_PROFILE: 'core' });
+    const rpc = speak(child);
+    try {
+      await rpc.request('initialize', { protocolVersion: '2024-11-05' });
+      const tools = await rpc.request('tools/list');
+      const names = (tools.result?.tools ?? []).map((tool) => tool.name);
+      expect(names).toHaveLength(12);
+      expect(names).toContain('memory_save');
+      expect(names).not.toContain('memory_lease');
+
+      // 隐藏工具调用被拒绝并提示切换方式
+      const hidden = await rpc.request('tools/call', {
+        name: 'memory_lease',
+        arguments: { name: 'x', ttlSeconds: 10 },
+      });
+      expect(hidden.error?.message).toContain('AGENT_RECALL_MCP_PROFILE=full');
+
+      // 核心工具正常工作
+      const saved = await rpc.request('tools/call', {
+        name: 'memory_save',
+        arguments: { content: 'core profile 写入验证' },
+      });
+      expect(saved.result?.content?.[0]?.text).toContain('core profile 写入验证');
     } finally {
       child.kill('SIGTERM');
     }
