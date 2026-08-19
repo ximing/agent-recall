@@ -1,0 +1,1277 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>召回 · Agent Recall 控制台设计稿</title>
+<style>
+/* ============ 设计令牌 ============ */
+:root {
+  --bg: #F5F5FA;
+  --surface: #FFFFFF;
+  --surface-2: #FAFAFD;
+  --ink: #1A1B26;
+  --ink-2: #5A5D72;
+  --ink-3: #989CB0;
+  --line: #E5E5EF;
+  --line-strong: #D2D3E2;
+
+  --accent: #6C53F0;
+  --accent-ink: #FFFFFF;
+  --accent-soft: #EFECFE;
+  --accent-line: #D3CCF9;
+  --grad: linear-gradient(120deg, #7B5CFF 0%, #4E8DFF 55%, #2FC8D8 100%);
+  --glow: 0 0 0 1px rgba(108, 83, 240, .12), 0 8px 32px rgba(108, 83, 240, .16);
+  --aurora-a: rgba(123, 92, 255, .09);
+  --aurora-b: rgba(47, 200, 216, .07);
+
+  --danger: #E0492F;
+  --danger-soft: #FBEEEB;
+  --danger-line: #F2CFC5;
+
+  --gold-bg: #FBF6E7;
+  --gold-line: #E3D4A8;
+  --gold-ink: #6F5712;
+
+  --ok: #1E9E6A;
+
+  --tab-web: #6C53F0;
+  --tab-agent: #C94FD8;
+  --tab-hook: #0FA8A0;
+  --tab-web-soft: #EFECFE;
+  --tab-agent-soft: #F9EBFC;
+  --tab-hook-soft: #E3F6F4;
+
+  --shadow: 0 1px 2px rgba(26, 27, 38, .05), 0 4px 16px rgba(26, 27, 38, .05);
+  --radius: 8px;
+  --radius-sm: 6px;
+
+  --font-display: "Songti SC", "STSong", "Noto Serif SC", "SimSun", serif;
+  --font-body: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+[data-theme="dark"] {
+  --bg: #0C0D14;
+  --surface: #15161F;
+  --surface-2: #1B1C29;
+  --ink: #EAE9F2;
+  --ink-2: #A3A6BC;
+  --ink-3: #646A82;
+  --line: #252738;
+  --line-strong: #343749;
+
+  --accent: #9C8BFF;
+  --accent-ink: #FFFFFF;
+  --accent-soft: #272352;
+  --accent-line: #3B3572;
+  --grad: linear-gradient(120deg, #8F7BFF 0%, #5EA1FF 55%, #3AD8C8 100%);
+  --glow: 0 0 0 1px rgba(156, 139, 255, .22), 0 8px 40px rgba(124, 96, 255, .28);
+  --aurora-a: rgba(143, 123, 255, .16);
+  --aurora-b: rgba(58, 216, 200, .10);
+
+  --danger: #E0695A;
+  --danger-soft: #3A211E;
+  --danger-line: #57302A;
+
+  --gold-bg: #2A2515;
+  --gold-line: #4C4122;
+  --gold-ink: #D9B75E;
+
+  --ok: #4CC48A;
+
+  --tab-web: #9C8BFF;
+  --tab-agent: #E08BEE;
+  --tab-hook: #3AD8C8;
+  --tab-web-soft: #272352;
+  --tab-agent-soft: #3A2340;
+  --tab-hook-soft: #14333A;
+
+  --shadow: 0 1px 2px rgba(0, 0, 0, .35), 0 6px 20px rgba(0, 0, 0, .28);
+}
+
+/* ============ 基础 ============ */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { -webkit-font-smoothing: antialiased; }
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.6;
+  transition: background-color .35s ease, color .35s ease;
+}
+
+/* 极光氛围底色：右上紫光、左下青光 */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(760px 440px at 88% -8%, var(--aurora-a), transparent 62%),
+    radial-gradient(640px 400px at -12% 108%, var(--aurora-b), transparent 62%);
+  transition: opacity .35s ease;
+}
+
+button { font: inherit; cursor: pointer; }
+input, textarea { font: inherit; color: inherit; }
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+::selection { background: var(--accent-soft); }
+
+/* ============ 整体框架 ============ */
+.shell {
+  display: grid;
+  grid-template-columns: 232px 1fr;
+  min-height: 100vh;
+}
+
+/* ---- 侧栏 ---- */
+.rail {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--line);
+  background: var(--surface);
+  padding: 28px 20px 20px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  transition: background-color .35s ease, border-color .35s ease;
+}
+
+.brand { margin-bottom: 36px; padding: 0 8px; }
+.brand-mark {
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  line-height: 1.2;
+  background: var(--grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.brand-sub {
+  font-size: 11px;
+  color: var(--ink-3);
+  letter-spacing: .18em;
+  margin-top: 4px;
+}
+
+.rail-nav { display: flex; flex-direction: column; gap: 2px; }
+.rail-nav button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 14px;
+  text-align: left;
+  transition: background-color .15s ease, color .15s ease;
+}
+.rail-nav button:hover { background: var(--surface-2); color: var(--ink); }
+.rail-nav button.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 500;
+}
+.rail-nav svg { flex: none; }
+.rail-nav .count {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.rail-nav button.active .count { color: var(--accent); }
+
+.rail-foot {
+  margin-top: auto;
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.theme-toggle {
+  display: flex;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px;
+  background: var(--surface-2);
+  gap: 2px;
+}
+.theme-toggle button {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  color: var(--ink-3);
+  font-size: 12px;
+  padding: 5px 0;
+  border-radius: 999px;
+  transition: background-color .2s ease, color .2s ease;
+}
+.theme-toggle button.active {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+}
+.rail-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 4px;
+}
+.avatar {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: var(--grad);
+  color: #FFFFFF;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  flex: none;
+}
+.rail-user .email {
+  font-size: 12px;
+  color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rail-user .logout {
+  margin-left: auto;
+  border: none;
+  background: none;
+  color: var(--ink-3);
+  font-size: 12px;
+  padding: 2px 4px;
+}
+.rail-user .logout:hover { color: var(--danger); }
+
+/* ---- 主区 ---- */
+.stage {
+  padding: 44px 48px 80px;
+  max-width: 980px;
+  animation: stage-in .5s ease both;
+}
+@keyframes stage-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stage { animation: none; }
+  * { transition: none !important; }
+}
+
+.page-head { margin-bottom: 28px; }
+.page-head.with-action {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.page-head h1 {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: .06em;
+}
+.page-head .desc {
+  color: var(--ink-2);
+  margin-top: 6px;
+  max-width: 56ch;
+}
+
+/* ============ 通用组件 ============ */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  transition: background-color .35s ease, border-color .35s ease;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+  border-radius: var(--radius-sm);
+  padding: 7px 14px;
+  font-size: 13px;
+  transition: border-color .15s ease, background-color .15s ease, color .15s ease;
+}
+.btn:hover { border-color: var(--ink-3); }
+.btn.primary {
+  background: var(--grad);
+  border: none;
+  color: #FFFFFF;
+  font-weight: 500;
+  box-shadow: 0 2px 10px rgba(108, 83, 240, .28);
+}
+.btn.primary:hover { filter: brightness(1.08); box-shadow: 0 4px 18px rgba(108, 83, 240, .36); }
+.btn.danger {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
+.btn.ghost {
+  border-color: transparent;
+  background: transparent;
+  color: var(--ink-2);
+  padding: 5px 8px;
+}
+.btn.ghost:hover { color: var(--ink); background: var(--surface-2); }
+.btn.ghost.warn:hover { color: var(--danger); background: var(--danger-soft); }
+
+.field {
+  width: 100%;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  padding: 9px 12px;
+  font-size: 14px;
+  transition: border-color .15s ease, box-shadow .15s ease, background-color .35s ease;
+}
+.field:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.field::placeholder { color: var(--ink-3); }
+textarea.field { resize: vertical; min-height: 88px; line-height: 1.6; }
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-weight: 500;
+}
+.badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+/* ============ 记忆页 ============ */
+.composer {
+  padding: 18px 20px;
+  margin-bottom: 24px;
+}
+.composer textarea {
+  border: none;
+  background: transparent;
+  width: 100%;
+  resize: vertical;
+  min-height: 64px;
+  font-size: 14px;
+  line-height: 1.7;
+}
+.composer textarea:focus { outline: none; }
+.composer textarea::placeholder { color: var(--ink-3); }
+.composer-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+  margin-top: 10px;
+}
+.composer-hint { font-size: 12px; color: var(--ink-3); }
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.search {
+  position: relative;
+  flex: 1;
+  min-width: 200px;
+  max-width: 320px;
+}
+.search svg {
+  position: absolute;
+  left: 11px; top: 50%;
+  transform: translateY(-50%);
+  color: var(--ink-3);
+  pointer-events: none;
+}
+.search .field { padding-left: 34px; }
+
+.chips { display: flex; gap: 6px; }
+.chip {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-2);
+  border-radius: 999px;
+  padding: 5px 13px;
+  font-size: 13px;
+  transition: all .15s ease;
+}
+.chip:hover { border-color: var(--ink-3); color: var(--ink); }
+.chip.active {
+  background: var(--grad);
+  border-color: transparent;
+  color: #FFFFFF;
+}
+.chip .n { opacity: .55; margin-left: 4px; font-size: 12px; font-variant-numeric: tabular-nums; }
+
+/* 排序选择 */
+.sort { position: relative; flex: none; }
+.sort select {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-2);
+  border-radius: 999px;
+  padding: 5px 30px 5px 13px;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color .15s ease, color .15s ease;
+}
+.sort select:hover { border-color: var(--ink-3); color: var(--ink); }
+.sort svg {
+  position: absolute;
+  right: 11px; top: 50%;
+  transform: translateY(-50%);
+  color: var(--ink-3);
+  pointer-events: none;
+}
+
+/* 召回模式提示 */
+.recall-hint {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-sm);
+  padding: 8px 14px;
+  margin-bottom: 16px;
+}
+body.demo-search .recall-hint { display: flex; }
+.recall-hint .clear {
+  margin-left: auto;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font-size: 12.5px;
+  padding: 0 4px;
+}
+.recall-hint .clear:hover { text-decoration: underline; }
+
+/* WYSIWYG 编辑器（TipTap 形态） */
+.wtoolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-wrap: wrap;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 12px;
+}
+.wbtn {
+  min-width: 30px;
+  height: 30px;
+  padding: 0 6px;
+  display: grid;
+  place-items: center;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  color: var(--ink-2);
+  font-size: 13px;
+  transition: background-color .12s ease, color .12s ease;
+}
+.wbtn:hover { background: var(--surface-2); color: var(--ink); }
+.wbtn.active { background: var(--accent-soft); color: var(--accent); }
+.wbtn b, .wbtn i, .wbtn s { pointer-events: none; }
+.wsep { width: 1px; height: 18px; background: var(--line); margin: 0 6px; flex: none; }
+.wcontent { min-height: 88px; line-height: 1.75; font-size: 14px; }
+.wcontent p { margin-bottom: 6px; }
+.wcontent:focus { outline: none; }
+
+/* markdown 渲染 */
+.md { font-size: 14px; line-height: 1.75; word-break: break-word; }
+.md > *:first-child { margin-top: 0; }
+.md > *:last-child { margin-bottom: 0; }
+.md p { margin: 0 0 10px; }
+.md h1, .md h2, .md h3 {
+  font-family: var(--font-display);
+  letter-spacing: .04em;
+  margin: 18px 0 8px;
+  line-height: 1.4;
+}
+.md h1 { font-size: 19px; }
+.md h2 { font-size: 17px; }
+.md h3 { font-size: 15px; }
+.md ul, .md ol { margin: 0 0 10px; padding-left: 22px; }
+.md li { margin-bottom: 4px; }
+.md blockquote {
+  margin: 0 0 10px;
+  padding: 8px 14px;
+  border-left: 3px solid var(--accent);
+  background: var(--accent-soft);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  color: var(--ink-2);
+}
+.md code {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+.md pre {
+  margin: 0 0 10px;
+  padding: 12px 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+}
+.md pre code { background: none; border: none; padding: 0; }
+.md a { color: var(--accent); text-decoration: none; }
+.md a:hover { text-decoration: underline; }
+.md hr { border: none; border-top: 1px solid var(--line); margin: 14px 0; }
+
+/* 档案行：左侧来源色签 + markdown 截断预览 */
+.mlist { display: flex; flex-direction: column; gap: 14px; }
+.mrow {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 18px 22px 12px 28px;
+  cursor: pointer;
+  transition: background-color .35s ease, border-color .2s ease, box-shadow .2s ease, transform .2s ease;
+}
+.mrow:hover { box-shadow: var(--glow); transform: translateY(-1px); }
+.mrow.selected { border-color: var(--accent); box-shadow: var(--glow); }
+.mrow::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 16px;
+  bottom: 16px;
+  width: 4px;
+  border-radius: 0 4px 4px 0;
+  background: var(--tab-web);
+}
+.mrow.origin-agent::before { background: var(--tab-agent); }
+.mrow.origin-hook::before { background: var(--tab-hook); }
+
+/* 来源标签 */
+.mcard-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: 4px;
+  letter-spacing: .04em;
+}
+.mcard-tag.web   { color: var(--tab-web);   background: var(--tab-web-soft); }
+.mcard-tag.agent { color: var(--tab-agent); background: var(--tab-agent-soft); }
+.mcard-tag.hook  { color: var(--tab-hook);  background: var(--tab-hook-soft); }
+
+.mrow-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.mrow-time { font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.mrow-actions { margin-left: auto; display: flex; gap: 2px; opacity: 0; transition: opacity .15s ease; }
+.mrow:hover .mrow-actions, .mrow:focus-within .mrow-actions { opacity: 1; }
+
+.clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.clamp .md p, .clamp .md ul, .clamp .md ol, .clamp .md blockquote { margin-bottom: 4px; }
+.clamp .md h1, .clamp .md h2, .clamp .md h3 { font-size: 15px; margin: 6px 0 4px; }
+
+/* 编辑态（行内） */
+.mrow.editing { border-color: var(--accent); cursor: default; }
+.mrow.editing:hover { transform: none; }
+.mrow .edit-row { display: flex; gap: 8px; margin-top: 12px; }
+
+/* 删除确认态 */
+.mrow.confirming { border-color: var(--danger-line); background: var(--danger-soft); cursor: default; }
+.mrow .confirm-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--danger-line);
+  font-size: 13px;
+  color: var(--danger);
+}
+.mrow .confirm-row .spacer { margin-left: auto; }
+
+/* 详情抽屉 */
+.drawer-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(20, 18, 40, .32);
+  backdrop-filter: blur(2px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .25s ease;
+}
+.drawer {
+  position: fixed;
+  top: 0; right: 0; bottom: 0;
+  z-index: 61;
+  width: min(520px, 92vw);
+  background: var(--surface);
+  border-left: 1px solid var(--line);
+  box-shadow: -12px 0 48px rgba(20, 18, 40, .18);
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform .28s cubic-bezier(.32, .72, .24, 1);
+}
+body.show-drawer .drawer-scrim { opacity: 1; pointer-events: auto; }
+body.show-drawer .drawer { transform: none; }
+.drawer-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 24px 14px;
+  border-bottom: 1px solid var(--line);
+}
+.drawer-head .mcard-tag { margin-bottom: 0; }
+.drawer-title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: .05em;
+}
+.drawer-close {
+  margin-left: auto;
+  border: none;
+  background: none;
+  color: var(--ink-3);
+  font-size: 18px;
+  line-height: 1;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+.drawer-close:hover { color: var(--ink); background: var(--surface-2); }
+.drawer-body { padding: 22px 24px; overflow-y: auto; flex: 1; }
+.drawer-foot {
+  display: flex;
+  gap: 8px;
+  padding: 14px 24px;
+  border-top: 1px solid var(--line);
+}
+.drawer-foot .spacer { margin-left: auto; }
+/* 抽屉双模式：查看 / 编辑（新建同编辑态） */
+.drawer .mode-edit { display: none; }
+body.drawer-new .drawer .mode-view,
+body.drawer-edit .drawer .mode-view { display: none; }
+body.drawer-new .drawer .mode-edit,
+body.drawer-edit .drawer .mode-edit { display: block; }
+.wcontent:empty::before {
+  content: attr(data-placeholder);
+  color: var(--ink-3);
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .drawer, .drawer-scrim { transition: none; }
+}
+
+/* ============ 密钥横幅 ============ */
+.secret-banner {
+  border: 1px solid var(--gold-line);
+  background: var(--gold-bg);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  margin-bottom: 24px;
+  transition: background-color .35s ease, border-color .35s ease;
+}
+.secret-banner .sb-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--gold-ink);
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+.secret-banner .sb-value {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  background: var(--surface);
+  border: 1px solid var(--gold-line);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  word-break: break-all;
+  user-select: all;
+}
+.secret-banner pre.sb-value { white-space: pre-wrap; line-height: 1.6; }
+.secret-banner .sb-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+.secret-banner .sb-note { font-size: 12px; color: var(--gold-ink); opacity: .8; }
+
+/* ============ 台账表（令牌 / MCP） ============ */
+.ledger { overflow: hidden; }
+.ledger table { width: 100%; border-collapse: collapse; }
+.ledger th {
+  text-align: left;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-3);
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+  transition: background-color .35s ease;
+}
+.ledger td {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+  font-size: 14px;
+}
+.ledger tr:last-child td { border-bottom: none; }
+.ledger tbody tr { transition: background-color .12s ease; }
+.ledger tbody tr:hover { background: var(--surface-2); }
+.ledger .name { font-weight: 500; }
+.ledger .mono { font-family: var(--font-mono); font-size: 12.5px; color: var(--ink-2); }
+.ledger .time { font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.status { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+.status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; }
+.status.ok { color: var(--ok); }
+.status.ok::before { background: var(--ok); }
+.status.revoked { color: var(--ink-3); }
+.status.revoked::before { background: var(--ink-3); }
+.ledger tr.revoked .name, .ledger tr.revoked .mono { color: var(--ink-3); text-decoration: line-through; text-decoration-color: var(--line-strong); }
+.ledger .revoke-confirm { display: flex; gap: 6px; }
+
+/* 创建表单行 */
+.create-row {
+  display: flex;
+  gap: 10px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  align-items: center;
+}
+.create-row .field { max-width: 320px; }
+
+/* ============ 空态 ============ */
+.empty {
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius);
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--ink-2);
+  background: transparent;
+}
+.empty .empty-title { font-family: var(--font-display); font-size: 17px; color: var(--ink); margin-bottom: 6px; letter-spacing: .05em; }
+.empty p { font-size: 13px; }
+
+/* ============ 登录页 ============ */
+.login-view {
+  display: none;
+  min-height: 100vh;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(900px 480px at 78% -10%, var(--aurora-a), transparent 62%),
+    radial-gradient(700px 420px at 8% 110%, var(--aurora-b), transparent 62%),
+    var(--bg);
+  transition: background-color .35s ease;
+}
+body.show-login .login-view { display: grid; }
+body.show-login .shell { display: none; }
+
+.login-card {
+  width: 100%;
+  max-width: 380px;
+  padding: 40px 36px 32px;
+  text-align: center;
+}
+.login-card .brand-mark { font-size: 40px; }
+.login-card .brand-sub { margin-bottom: 28px; }
+.login-card form { display: flex; flex-direction: column; gap: 12px; text-align: left; }
+.login-card .btn.primary { justify-content: center; padding: 10px; font-size: 14px; margin-top: 6px; }
+.login-tip { font-size: 12px; color: var(--ink-3); margin-top: 18px; }
+
+/* 页面切换 */
+.page { display: none; }
+.page.current { display: block; }
+
+/* 设计稿演示条 */
+.demo-bar {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  z-index: 50;
+  display: flex;
+  gap: 8px;
+}
+.demo-bar button {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-2);
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 12px;
+  box-shadow: var(--shadow);
+}
+.demo-bar button:hover { color: var(--ink); border-color: var(--ink-3); }
+
+@media (max-width: 760px) {
+  .shell { grid-template-columns: 1fr; }
+  .rail { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--line); }
+  .stage { padding: 28px 20px 60px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ============ 登录页 ============ -->
+<div class="login-view">
+  <div class="panel login-card">
+    <p class="brand-mark">召回</p>
+    <p class="brand-sub">AGENT RECALL</p>
+    <form onsubmit="event.preventDefault(); document.body.classList.remove('show-login');">
+      <input class="field" type="email" placeholder="邮箱" value="ximing@example.com">
+      <input class="field" type="password" placeholder="密码" value="········">
+      <button class="btn primary" type="submit">登录</button>
+    </form>
+    <p class="login-tip">仅供设计稿演示 — 点「登录」进入后台</p>
+  </div>
+</div>
+
+<!-- ============ 后台框架 ============ -->
+<div class="shell">
+  <aside class="rail">
+    <div class="brand">
+      <p class="brand-mark">召回</p>
+      <p class="brand-sub">AGENT RECALL</p>
+    </div>
+
+    <nav class="rail-nav">
+      <button class="active" data-page="memories">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 2.5h10v11l-5-3-5 3v-11z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+        记忆 <span class="count">12</span>
+      </button>
+      <button data-page="tokens">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="5.5" cy="8" r="3" stroke="currentColor" stroke-width="1.4"/><path d="M8.2 8H14M12 8v2.5M14 8v2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        令牌 <span class="count">3</span>
+      </button>
+      <button data-page="mcp">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="3" width="12" height="8" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M6 13.5h4M8 11v2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+        MCP 客户端 <span class="count">2</span>
+      </button>
+    </nav>
+
+    <div class="rail-foot">
+      <div class="theme-toggle" role="group" aria-label="主题">
+        <button id="theme-light" class="active">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.4"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M12.6 3.4l-1.4 1.4M4.8 11.2l-1.4 1.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          明亮
+        </button>
+        <button id="theme-dark">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M13.5 9.5A6 6 0 0 1 6.5 2.5a6 6 0 1 0 7 7z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+          暗色
+        </button>
+      </div>
+      <div class="rail-user">
+        <span class="avatar">X</span>
+        <span class="email">ximing@example.com</span>
+        <button class="logout" onclick="document.body.classList.add('show-login')">退出</button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="stage">
+
+    <!-- ============ 记忆页 ============ -->
+    <section class="page current" id="page-memories">
+      <header class="page-head with-action">
+        <div>
+          <h1>记忆</h1>
+          <p class="desc">从网页写一条，或让代理与钩子替你记录。所有记忆都会进入召回索引。</p>
+        </div>
+        <button class="btn primary" onclick="openDrawer('new')">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2.5v11M2.5 8h11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          新建记忆
+        </button>
+      </header>
+
+      <div class="toolbar">
+        <div class="search">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.4"/><path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          <input class="field" placeholder="搜索记忆，走 BM25 + 向量召回…" oninput="document.body.classList.toggle('demo-search', this.value.length > 0)">
+        </div>
+        <div class="chips">
+          <button class="chip active">全部<span class="n">12</span></button>
+          <button class="chip">网页<span class="n">5</span></button>
+          <button class="chip">代理<span class="n">4</span></button>
+          <button class="chip">钩子<span class="n">3</span></button>
+        </div>
+        <div class="sort">
+          <select>
+            <option>最新创建</option>
+            <option>最近更新</option>
+            <option>最早创建</option>
+          </select>
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+      </div>
+
+      <p class="recall-hint">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 1.5l1.8 4.2 4.2 1.8-4.2 1.8L8 13.5 6.2 9.3 2 7.5l4.2-1.8L8 1.5z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
+        召回结果 · 按相关度排序（BM25 + 向量 + RRF 融合）
+        <button class="clear" onclick="document.body.classList.remove('demo-search'); document.querySelector('.search .field').value=''">清除搜索</button>
+      </p>
+
+      <!-- 档案行列表 -->
+      <div class="mlist">
+        <!-- 普通行：markdown 截断预览，点击打开抽屉 -->
+        <article class="mrow origin-web selected" onclick="openDrawer('view')">
+          <div class="mrow-head">
+            <span class="mcard-tag web">网页</span>
+            <span class="mrow-time">10月6日 21:14</span>
+            <span class="mrow-actions">
+              <button class="btn ghost" onclick="event.stopPropagation(); openDrawer('edit')">编辑</button>
+              <button class="btn ghost warn" onclick="event.stopPropagation()">删除</button>
+            </span>
+          </div>
+          <div class="clamp">
+            <div class="md">
+              <p>生产环境在 <b>222 那台机器</b>上，发布前记得先跑一遍 <code>e2e</code>，Vite 要绑 <b>IPv4</b>。上次 443 端口被 IPv6 抢占了半天没查出来。</p>
+            </div>
+          </div>
+        </article>
+
+        <!-- 删除确认态 -->
+        <article class="mrow origin-hook confirming">
+          <div class="mrow-head">
+            <span class="mcard-tag hook">钩子</span>
+            <span class="mrow-time">9月30日 08:12</span>
+          </div>
+          <div class="clamp">
+            <div class="md"><p>commit 前钩子会自动把本次改动的摘要写入记忆。</p></div>
+          </div>
+          <div class="confirm-row">
+            确定删除这条记忆？不可恢复。
+            <span class="spacer"></span>
+            <button class="btn danger">确认删除</button>
+            <button class="btn">取消</button>
+          </div>
+        </article>
+
+        <!-- 普通行：更长的内容，展示截断效果 -->
+        <article class="mrow origin-agent" onclick="openDrawer('view')">
+          <div class="mrow-head">
+            <span class="mcard-tag agent">代理</span>
+            <span class="mrow-time">9月28日 09:02</span>
+            <span class="mrow-actions">
+              <button class="btn ghost" onclick="event.stopPropagation(); openDrawer('edit')">编辑</button>
+              <button class="btn ghost warn" onclick="event.stopPropagation()">删除</button>
+            </span>
+          </div>
+          <div class="clamp">
+            <div class="md">
+              <h2>令牌管理约定</h2>
+              <p>服务器的令牌有效期 <b>90 天</b>，MCP 客户端令牌独立管理。吊销后旧配置立即失效，注意：</p>
+              <ul>
+                <li>网页令牌给浏览器会话用</li>
+                <li>API 令牌给脚本和 CI</li>
+                <li>MCP 令牌只从客户端注册流程签发</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- 记忆抽屉：查看 / 新建 / 编辑 三态复用 -->
+    <div class="drawer-scrim" onclick="closeDrawer()"></div>
+    <aside class="drawer">
+      <!-- 查看态 -->
+      <div class="mode-view">
+        <div class="drawer-head">
+          <span class="mcard-tag web">网页</span>
+          <span class="mrow-time">10月6日 21:14</span>
+          <button class="drawer-close" onclick="closeDrawer()">✕</button>
+        </div>
+        <div class="drawer-body">
+          <div class="md">
+            <h2>发布前检查</h2>
+            <p>生产环境在 <b>222 那台机器</b>上，发布前记得先跑一遍 <code>e2e</code>，Vite 要绑 <b>IPv4</b>。上次 443 端口被 IPv6 抢占了半天没查出来。</p>
+            <blockquote>经验：凡是「本地好的、线上不通」，先查协议栈再查防火墙。</blockquote>
+            <h3>步骤</h3>
+            <ol>
+              <li><code>pnpm build</code> 确认类型检查通过</li>
+              <li>222 上跑 e2e 全量</li>
+              <li>发布并观察 5 分钟日志</li>
+            </ol>
+          </div>
+        </div>
+        <div class="drawer-foot">
+          <button class="btn primary" onclick="openDrawer('edit')">编辑</button>
+          <button class="btn ghost warn">删除</button>
+        </div>
+      </div>
+      <!-- 新建 / 编辑态 -->
+      <div class="mode-edit">
+        <div class="drawer-head">
+          <span class="drawer-title" id="drawer-edit-title">新建记忆</span>
+          <button class="drawer-close" onclick="closeDrawer()">✕</button>
+        </div>
+        <div class="drawer-body">
+          <div class="wtoolbar">
+            <button class="wbtn" title="加粗"><b>B</b></button>
+            <button class="wbtn" title="斜体"><i>I</i></button>
+            <button class="wbtn" title="删除线"><s>S</s></button>
+            <span class="wsep"></span>
+            <button class="wbtn" title="一级标题">H1</button>
+            <button class="wbtn" title="二级标题">H2</button>
+            <span class="wsep"></span>
+            <button class="wbtn" title="无序列表">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="2.5" cy="4" r="1.2" fill="currentColor"/><circle cx="2.5" cy="8" r="1.2" fill="currentColor"/><circle cx="2.5" cy="12" r="1.2" fill="currentColor"/><path d="M6 4h8M6 8h8M6 12h8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+            </button>
+            <button class="wbtn" title="有序列表">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M6 4h8M6 8h8M6 12h8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M1.5 3.2L2.8 2.5V6M1.3 9.2h2l-2 2.6h2M1.5 13.8h1.6" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <button class="wbtn" title="引用">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 4h10v8H7l-2.5 2V12H3V4z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+            </button>
+            <button class="wbtn" title="行内代码" style="font-family:var(--font-mono)">&lt;/&gt;</button>
+            <span class="wsep"></span>
+            <button class="wbtn" title="链接">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M6.5 9.5l3-3M7.5 5.5l1-1a2.8 2.8 0 0 1 4 4l-1 1M8.5 10.5l-1 1a2.8 2.8 0 0 1-4-4l1-1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+            </button>
+          </div>
+          <div class="wcontent" contenteditable="true" data-placeholder="写下一条记忆，支持 Markdown……"></div>
+        </div>
+        <div class="drawer-foot">
+          <button class="btn primary">保存记忆</button>
+          <button class="btn" onclick="closeDrawer()">取消</button>
+          <span class="spacer"></span>
+          <span class="composer-hint">⌘ + Enter 保存</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ============ 令牌页 ============ -->
+    <section class="page" id="page-tokens">
+      <header class="page-head">
+        <h1>令牌</h1>
+        <p class="desc">完整令牌只在创建时出现一次，请立即抄写。列表里只保留预览。</p>
+      </header>
+
+      <div class="panel create-row">
+        <input class="field" placeholder="令牌名称，例如：我的 MacBook">
+        <button class="btn primary">创建令牌</button>
+      </div>
+
+      <aside class="secret-banner">
+        <p class="sb-title">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 1.5L14.5 13h-13L8 1.5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M8 6v3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="8" cy="11.3" r=".8" fill="currentColor"/></svg>
+          完整令牌，仅此一次显示
+        </p>
+        <p class="sb-value">art_live_9f3k2mQ8xLpV4nR7sT1wY6uJ0hB5cZ</p>
+        <div class="sb-foot">
+          <button class="btn primary">复制</button>
+          <button class="btn">我已抄写</button>
+          <span class="sb-note">关闭后将无法再次查看完整令牌</span>
+        </div>
+      </aside>
+
+      <div class="panel ledger">
+        <table>
+          <thead>
+            <tr><th>名称</th><th>预览</th><th>状态</th><th>创建时间</th><th></th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="name">我的 MacBook</td>
+              <td class="mono">art_live_9f3k…</td>
+              <td><span class="status ok">有效</span></td>
+              <td class="time">10月6日 21:30</td>
+              <td><button class="btn ghost warn">吊销</button></td>
+            </tr>
+            <tr>
+              <td class="name">CI 流水线</td>
+              <td class="mono">art_live_x72a…</td>
+              <td><span class="status ok">有效</span></td>
+              <td class="time">9月12日 10:05</td>
+              <td>
+                <span class="revoke-confirm">
+                  <button class="btn danger">确认吊销</button>
+                  <button class="btn">取消</button>
+                </span>
+              </td>
+            </tr>
+            <tr class="revoked">
+              <td class="name">旧服务器</td>
+              <td class="mono">art_live_m41q…</td>
+              <td><span class="status revoked">已吊销</span></td>
+              <td class="time">8月3日 16:44</td>
+              <td></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============ MCP 页 ============ -->
+    <section class="page" id="page-mcp">
+      <header class="page-head">
+        <h1>MCP 客户端</h1>
+        <p class="desc">注册一个客户端，把服务地址和令牌写进本地配置，代理即可读写记忆。</p>
+      </header>
+
+      <div class="panel create-row">
+        <input class="field" placeholder="客户端名称，例如：Claude Desktop">
+        <button class="btn primary">注册客户端</button>
+      </div>
+
+      <aside class="secret-banner">
+        <p class="sb-title">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 1.5L14.5 13h-13L8 1.5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M8 6v3.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="8" cy="11.3" r=".8" fill="currentColor"/></svg>
+          客户端配置（含完整令牌，仅此一次）
+        </p>
+        <pre class="sb-value">{
+  "mcpServers": {
+    "agent-recall": {
+      "url": "https://recall.example.com/mcp",
+      "headers": { "Authorization": "Bearer art_mcp_k82n…" }
+    }
+  }
+}</pre>
+        <div class="sb-foot">
+          <button class="btn primary">复制配置</button>
+          <button class="btn">我已抄写</button>
+          <span class="sb-note">粘贴到客户端的 MCP 配置文件中即可生效</span>
+        </div>
+      </aside>
+
+      <div class="panel ledger">
+        <table>
+          <thead>
+            <tr><th>客户端</th><th>令牌预览</th><th>状态</th><th>注册时间</th><th></th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="name">Claude Desktop</td>
+              <td class="mono">art_mcp_k82n…</td>
+              <td><span class="status ok">有效</span></td>
+              <td class="time">10月2日 14:20</td>
+              <td><button class="btn ghost warn">吊销客户端</button></td>
+            </tr>
+            <tr>
+              <td class="name">Claude Code · 公司机</td>
+              <td class="mono">art_mcp_p50t…</td>
+              <td><span class="status ok">有效</span></td>
+              <td class="time">9月18日 11:37</td>
+              <td><button class="btn ghost warn">吊销客户端</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- 设计稿演示条 -->
+<div class="demo-bar">
+  <button onclick="openDrawer('new')">新建记忆抽屉</button>
+  <button onclick="openDrawer('view')">记忆详情抽屉</button>
+  <button onclick="document.body.classList.add('show-login')">查看登录页</button>
+</div>
+
+<script>
+// 主题切换（记忆选择）
+const root = document.documentElement;
+function setTheme(t) {
+  root.dataset.theme = t;
+  document.getElementById('theme-light').classList.toggle('active', t === 'light');
+  document.getElementById('theme-dark').classList.toggle('active', t === 'dark');
+  localStorage.setItem('ar-theme', t);
+}
+document.getElementById('theme-light').onclick = () => setTheme('light');
+document.getElementById('theme-dark').onclick = () => setTheme('dark');
+setTheme(localStorage.getItem('ar-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+
+// 抽屉三态：view / new / edit
+function openDrawer(mode) {
+  document.body.classList.add('show-drawer');
+  document.body.classList.toggle('drawer-new', mode === 'new');
+  document.body.classList.toggle('drawer-edit', mode === 'edit');
+  if (mode === 'edit') document.getElementById('drawer-edit-title').textContent = '编辑记忆';
+  if (mode === 'new') document.getElementById('drawer-edit-title').textContent = '新建记忆';
+}
+function closeDrawer() {
+  document.body.classList.remove('show-drawer', 'drawer-new', 'drawer-edit');
+}
+
+// 页面切换
+document.querySelectorAll('.rail-nav button').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.rail-nav button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('current'));
+    const page = document.getElementById('page-' + btn.dataset.page);
+    page.classList.add('current');
+    // 重放入场动画
+    page.parentElement.style.animation = 'none';
+    void page.parentElement.offsetWidth;
+    page.parentElement.style.animation = '';
+  };
+});
+
+// 筛选 chips 演示
+document.querySelectorAll('.chips .chip').forEach(chip => {
+  chip.onclick = () => {
+    document.querySelectorAll('.chips .chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+  };
+});
+</script>
+</body>
+</html>
