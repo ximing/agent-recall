@@ -43,7 +43,7 @@ export const SCHEMA_STATEMENTS = [
     event_id varchar(128),
     content_hash varchar(64),
     expires_at timestamptz,
-    chain_id uuid,
+    chain_id uuid NOT NULL,
     parent_id uuid,
     version integer NOT NULL DEFAULT 1,
     is_latest boolean NOT NULL DEFAULT true,
@@ -82,31 +82,6 @@ export const SCHEMA_STATEMENTS = [
     created_at timestamptz NOT NULL
   )`,
   `CREATE INDEX IF NOT EXISTS recall_logs_user_created_idx ON recall_logs (user_id, created_at)`,
-  // ---- 兼容已存在库的增量迁移 ----
-  `ALTER TABLE recall_logs ADD COLUMN IF NOT EXISTS rerank_error text`,
-  `ALTER TABLE memories ADD COLUMN IF NOT EXISTS type varchar(24) NOT NULL DEFAULT 'fact'`,
-  `ALTER TABLE memories ADD COLUMN IF NOT EXISTS tags jsonb NOT NULL DEFAULT '[]'`,
-  `ALTER TABLE memories ADD COLUMN IF NOT EXISTS project varchar(128)`,
-  `ALTER TABLE memories ADD COLUMN IF NOT EXISTS session_id varchar(128)`,
-  `ALTER TABLE memories ADD COLUMN IF NOT EXISTS content_hash varchar(64)`,
-  `ALTER TABLE memories ADD COLUMN IF NOT EXISTS expires_at timestamptz`,
-  `ALTER TABLE memories ADD COLUMN IF NOT EXISTS chain_id uuid`,
-  `ALTER TABLE memories ADD COLUMN IF NOT EXISTS parent_id uuid`,
-  `ALTER TABLE memories ADD COLUMN IF NOT EXISTS version integer NOT NULL DEFAULT 1`,
-  `ALTER TABLE memories ADD COLUMN IF NOT EXISTS is_latest boolean NOT NULL DEFAULT true`,
-  `ALTER TABLE memories ADD COLUMN IF NOT EXISTS access_count integer NOT NULL DEFAULT 0`,
-  `ALTER TABLE memories ADD COLUMN IF NOT EXISTS last_accessed_at timestamptz`,
-  // 存量行回填：chain_id 默认为自身 id（单版本链）
-  `UPDATE memories SET chain_id = id WHERE chain_id IS NULL`,
-  `ALTER TABLE memories ALTER COLUMN chain_id SET NOT NULL`,
-  // origin 校验放开到 import/summary；旧约束若存在则替换
-  `ALTER TABLE memories DROP CONSTRAINT IF EXISTS memories_origin_check`,
-  `ALTER TABLE memories ADD CONSTRAINT memories_origin_check CHECK (origin IN ('web', 'agent', 'hook', 'import', 'summary'))`,
-  `ALTER TABLE memories DROP CONSTRAINT IF EXISTS memories_type_check`,
-  `ALTER TABLE memories ADD CONSTRAINT memories_type_check CHECK (type IN ('fact', 'preference', 'pattern', 'architecture', 'bug', 'workflow', 'lesson'))`,
-  `ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS auto_forget_days integer NOT NULL DEFAULT 0`,
-  `ALTER TABLE user_settings ALTER COLUMN rerank_api_key TYPE varchar(512)`,
-  // ---- KV 协同原语 / 快照 / 审计 ----
   `CREATE TABLE IF NOT EXISTS kv_entries (
     user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     namespace varchar(32) NOT NULL,

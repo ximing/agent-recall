@@ -51,7 +51,6 @@ describe('claude-code plugin hooks', () => {
     dataDir = await makeDataDir();
     spoolDir = await mkdtemp(path.join(tmpdir(), 'agent-recall-spool-'));
     const config = testConfig({
-      dataDir,
       MEILI_URL: standin.url,
       MEILI_API_KEY: 'meili-test',
       QDRANT_URL: standin.url,

@@ -18,7 +18,7 @@ export async function updateSettings(
   db: Database,
   userId: string,
   input: SettingsUpdateInput,
-  dataDir: string,
+  encryptionKey: string,
 ): Promise<UserSettingsRow> {
   await getSettings(db, userId);
   const patch: Partial<
@@ -28,7 +28,7 @@ export async function updateSettings(
   if (input.rerankModel !== undefined) patch.rerankModel = input.rerankModel;
   if (input.rerankApiKey !== undefined) {
     // 空串 = 清除；其余一律加密落库
-    patch.rerankApiKey = input.rerankApiKey === '' ? null : encryptSecret(dataDir, input.rerankApiKey);
+    patch.rerankApiKey = input.rerankApiKey === '' ? null : encryptSecret(encryptionKey, input.rerankApiKey);
   }
   if (input.autoForgetDays !== undefined) patch.autoForgetDays = input.autoForgetDays;
   await db.update(userSettings).set(patch).where(eq(userSettings.userId, userId));
@@ -36,13 +36,13 @@ export async function updateSettings(
 }
 
 /** 读取解密后的 rerankApiKey（不存在时返回 null）。历史明文自动兼容。 */
-export function getRerankApiKey(row: UserSettingsRow, dataDir: string): string | null {
+export function getRerankApiKey(row: UserSettingsRow, encryptionKey: string): string | null {
   if (!row.rerankApiKey) return null;
-  return isEncrypted(row.rerankApiKey) ? decryptSecret(dataDir, row.rerankApiKey) : row.rerankApiKey;
+  return isEncrypted(row.rerankApiKey) ? decryptSecret(encryptionKey, row.rerankApiKey) : row.rerankApiKey;
 }
 
-export function toSettings(row: UserSettingsRow, dataDir: string): SettingsPublic {
-  const key = getRerankApiKey(row, dataDir);
+export function toSettings(row: UserSettingsRow, encryptionKey: string): SettingsPublic {
+  const key = getRerankApiKey(row, encryptionKey);
   return {
     rerankEnabled: row.rerankEnabled,
     rerankBaseUrl: row.rerankBaseUrl,

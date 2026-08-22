@@ -18,7 +18,6 @@ describe('two-path recall', () => {
     standin = await startProtocolStandin();
     dataDir = await makeDataDir();
     const config = testConfig({
-      dataDir,
       MEILI_URL: standin.url,
       MEILI_API_KEY: 'meili-test',
       QDRANT_URL: standin.url,

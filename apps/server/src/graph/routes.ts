@@ -6,7 +6,7 @@ import { memories } from '../db/schema.js';
 import { getMemory, toMemory, type MemoryDeps } from '../memories/service.js';
 
 function deps(app: FastifyInstance): MemoryDeps {
-  return { db: app.ctx.db, retrieval: app.ctx.retrieval, dataDir: app.ctx.config.dataDir };
+  return { db: app.ctx.db, retrieval: app.ctx.retrieval, encryptionKey: app.ctx.config.ENCRYPTION_KEY };
 }
 
 function buildGraph(rows: MemoryPublic[]): { nodes: Map<string, GraphNode>; edges: GraphEdge[] } {

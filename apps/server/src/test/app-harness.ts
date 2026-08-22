@@ -1,16 +1,41 @@
+import { readFileSync } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { parse } from 'dotenv';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../app.js';
 import { loadConfig, type AppConfig } from '../config.js';
+import { createSchemaName, dropSchema } from '../db/client.js';
+import { envFilePath, serverRoot } from '../env.js';
 import type { RetrievalPorts } from '../retrieval/ports.js';
 
+let cachedTestDatabaseUrl: string | undefined;
+
+/** Reads apps/server/.env.test only. A shell DATABASE_URL is ignored so tests cannot hit production. */
+export function testDatabaseUrl(): string {
+  if (cachedTestDatabaseUrl) return cachedTestDatabaseUrl;
+  const file = envFilePath(serverRoot, 'test');
+  let parsed: Record<string, string>;
+  try {
+    parsed = parse(readFileSync(file));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Cannot read DATABASE_URL from ${file}: ${message}`);
+  }
+  const url = parsed.DATABASE_URL?.trim();
+  if (!url) throw new Error(`DATABASE_URL is missing from ${file}`);
+  cachedTestDatabaseUrl = url;
+  return url;
+}
+
 export function testConfig(overrides: Partial<AppConfig> = {}): AppConfig {
-  const base = loadConfig({});
+  const base = loadConfig({
+    DATABASE_URL: testDatabaseUrl(),
+    ENCRYPTION_KEY: 'test-encryption-key',
+  });
   return {
     ...base,
-    DATABASE_URL: undefined,
     MEILI_URL: '',
     MEILI_API_KEY: '',
     QDRANT_URL: '',
@@ -22,6 +47,21 @@ export function testConfig(overrides: Partial<AppConfig> = {}): AppConfig {
   };
 }
 
+const schemas = new Map<string, { schema: string; databaseUrl: string }>();
+
+export function schemaFor(dataDir: string, databaseUrl = testDatabaseUrl()): string {
+  const existing = schemas.get(dataDir);
+  if (existing) {
+    if (existing.databaseUrl !== databaseUrl) {
+      throw new Error('data dir is already bound to a different database');
+    }
+    return existing.schema;
+  }
+  const schema = createSchemaName();
+  schemas.set(dataDir, { schema, databaseUrl });
+  return schema;
+}
+
 export async function makeDataDir(): Promise<string> {
   return mkdtemp(path.join(tmpdir(), 'agent-recall-'));
 }
@@ -31,11 +71,12 @@ export async function openTestApp(options: {
   config?: AppConfig;
   retrieval?: RetrievalPorts;
 }): Promise<FastifyInstance> {
-  const config = options.config ?? testConfig({ dataDir: options.dataDir });
+  const config = options.config ?? testConfig();
+  const databaseUrl = config.DATABASE_URL;
   return buildApp({
-    config: { ...config, dataDir: options.dataDir },
-    dataDir: options.dataDir,
-    databaseUrl: null,
+    config,
+    databaseUrl,
+    schema: schemaFor(options.dataDir, databaseUrl),
     retrieval: options.retrieval,
     webDist: null,
     logger: false,
@@ -43,6 +84,12 @@ export async function openTestApp(options: {
 }
 
 export async function removeDataDir(dataDir: string): Promise<void> {
+  if (!dataDir) throw new Error('refusing to remove an empty data dir');
+  const bound = schemas.get(dataDir);
+  if (bound) {
+    await dropSchema(bound.databaseUrl, bound.schema);
+    schemas.delete(dataDir);
+  }
   await rm(dataDir, { recursive: true, force: true });
 }
 

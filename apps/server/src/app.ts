@@ -23,8 +23,8 @@ import { registerWebStatic, resolveWebDist } from './web-static.js';
 
 export interface BuildAppOptions {
   config?: AppConfig;
-  dataDir?: string;
-  databaseUrl?: string | null;
+  databaseUrl?: string;
+  schema?: string;
   retrieval?: RetrievalPorts;
   webDist?: string | null;
   logger?: boolean;
@@ -32,11 +32,9 @@ export interface BuildAppOptions {
 
 export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyInstance> {
   const config = options.config ?? loadConfig();
-  const databaseUrl = options.databaseUrl === null ? undefined : (options.databaseUrl ?? config.DATABASE_URL);
-  const opened = await openDatabase({
-    dataDir: options.dataDir ?? config.dataDir,
-    databaseUrl,
-  });
+  const databaseUrl = options.databaseUrl ?? config.DATABASE_URL;
+  const schema = options.schema ?? config.DATABASE_SCHEMA;
+  const opened = await openDatabase({ databaseUrl, schema });
   const retrieval = options.retrieval ?? createRetrieval(config);
 
   const app = Fastify({ logger: options.logger ?? false });

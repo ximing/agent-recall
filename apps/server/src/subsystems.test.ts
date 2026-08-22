@@ -26,7 +26,6 @@ describe('subsystems: kv, graph, snapshots, mesh, share, crystallize, admin, con
     standin = await startProtocolStandin();
     dataDir = await makeDataDir();
     const config = testConfig({
-      dataDir,
       MEILI_URL: standin.url,
       MEILI_API_KEY: 'meili-test',
       QDRANT_URL: standin.url,
@@ -177,7 +176,6 @@ describe('subsystems: kv, graph, snapshots, mesh, share, crystallize, admin, con
     // 第二个 app 实例作为 peer（standin 复用，真实监听端口）
     const peerDir = await makeDataDir();
     const peerConfig = testConfig({
-      dataDir: peerDir,
       MEILI_URL: standin.url,
       MEILI_API_KEY: 'meili-test',
       QDRANT_URL: standin.url,

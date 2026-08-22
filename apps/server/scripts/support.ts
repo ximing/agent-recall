@@ -1,10 +1,28 @@
 import { spawn, type ChildProcess } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parse } from 'dotenv';
+import { envFilePath } from '../src/env.js';
 import { startProtocolStandin, type ProtocolStandIn } from '../src/retrieval/protocol-standin.js';
 
 export const serverRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const mcpRoot = path.resolve(serverRoot, '../mcp');
+
+/** Reads apps/server/.env.test only. A shell DATABASE_URL is ignored so launch scripts cannot hit production. */
+export function launchDatabaseUrl(): string {
+  const file = envFilePath(serverRoot, 'test');
+  let parsed: Record<string, string>;
+  try {
+    parsed = parse(readFileSync(file));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Cannot read DATABASE_URL from ${file}: ${message}`);
+  }
+  const url = parsed.DATABASE_URL?.trim();
+  if (!url) throw new Error(`DATABASE_URL is missing from ${file}`);
+  return url;
+}
 
 export async function waitForHealth(base: string): Promise<void> {
   const deadline = Date.now() + 20_000;
@@ -22,7 +40,8 @@ export async function waitForHealth(base: string): Promise<void> {
 
 export function startServer(options: {
   port: number;
-  dataDir: string;
+  databaseUrl: string;
+  schema: string;
   standin: ProtocolStandIn;
   webDist?: string;
 }): ChildProcess {
@@ -30,8 +49,9 @@ export function startServer(options: {
     ...process.env,
     PORT: String(options.port),
     HOST: '127.0.0.1',
-    DATA_DIR: options.dataDir,
-    DATABASE_URL: '',
+    DATABASE_URL: options.databaseUrl,
+    DATABASE_SCHEMA: options.schema,
+    ENCRYPTION_KEY: 'launch-encryption-key',
     PUBLIC_BASE_URL: `http://127.0.0.1:${String(options.port)}`,
     WEB_ORIGIN: `http://127.0.0.1:${String(options.port)}`,
     MEILI_URL: options.standin.url,

@@ -25,9 +25,6 @@ importers:
       '@agent-recall/dto':
         specifier: workspace:*
         version: link:../../packages/dto
-      '@electric-sql/pglite':
-        specifier: ^0.3.14
-        version: 0.3.16
       '@fastify/cookie':
         specifier: ^11.0.2
         version: 11.1.2
@@ -45,7 +42,7 @@ importers:
         version: 16.6.1
       drizzle-orm:
         specifier: ^0.45.1
-        version: 0.45.3(@electric-sql/pglite@0.3.16)(@types/pg@8.23.1)(pg@8.23.1)
+        version: 0.45.3(@types/pg@8.23.1)(pg@8.23.1)
       fastify:
         specifier: ^5.2.1
         version: 5.12.5
@@ -230,9 +227,6 @@ packages:
   '@babel/types@7.29.8':
     resolution: {integrity: sha512-Vj1jF3cPfxg7OAfoI7QnVKLoILlm2JF9pnVHrX8qx7AHMiYWT+NDAA7jChlNgRS4WTLc/fD1lXLmPixluj+3Gg==}
     engines: {node: '>=6.9.0'}
-
-  '@electric-sql/pglite@0.3.16':
-    resolution: {integrity: sha512-mZkZfOd9OqTMHsK+1cje8OSzfAQcpD7JmILXTl5ahdempjUDdmg4euf1biDex5/LfQIDJ3gvCu6qDgdnDxfJmA==}
 
   '@esbuild/aix-ppc64@0.25.12':
     resolution: {integrity: sha512-Hhmwd6CInZ3dwpuGTF8fJG6yoWmsToE+vYgD4nytZVxcu1ulHpUQRAB1UJ8+N1Am3Mz4+xOByoQoSZf4D+CpkA==}
@@ -2302,8 +2296,6 @@ snapshots:
       '@babel/helper-string-parser': 7.29.7
       '@babel/helper-validator-identifier': 7.29.7
 
-  '@electric-sql/pglite@0.3.16': {}
-
   '@esbuild/aix-ppc64@0.25.12':
     optional: true
 
@@ -3065,9 +3057,8 @@ snapshots:
 
   dotenv@16.6.1: {}
 
-  drizzle-orm@0.45.3(@electric-sql/pglite@0.3.16)(@types/pg@8.23.1)(pg@8.23.1):
+  drizzle-orm@0.45.3(@types/pg@8.23.1)(pg@8.23.1):
     optionalDependencies:
-      '@electric-sql/pglite': 0.3.16
       '@types/pg': 8.23.1
       pg: 8.23.1
 

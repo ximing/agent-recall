@@ -98,7 +98,7 @@ export const userSettings = pgTable('user_settings', {
     .notNull()
     .default('https://dashscope.aliyuncs.com/api/v1'),
   rerankModel: varchar('rerank_model', { length: 80 }).notNull().default('gte-rerank-v2'),
-  /** AES-256-GCM 加密存储（enc:v1:iv:tag:data），密钥在 dataDir/.secret */
+  /** AES-256-GCM 加密存储（enc:v1:iv:tag:data），密钥来自 ENCRYPTION_KEY */
   rerankApiKey: varchar('rerank_api_key', { length: 512 }),
   /** 自动遗忘阈值天数：hook 碎片超过该天数且从未被召回命中则清除，0 = 禁用 */
   autoForgetDays: integer('auto_forget_days').notNull().default(0),

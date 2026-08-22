@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { call, makeDataDir, openTestApp, removeDataDir, sessionCookie, testConfig } from '../test/app-harness.js';
+import { call, makeDataDir, openTestApp, removeDataDir, sessionCookie } from '../test/app-harness.js';
 
 describe('accounts, memories, and tokens', () => {
   let dataDir = '';
@@ -8,7 +8,7 @@ describe('accounts, memories, and tokens', () => {
 
   beforeAll(async () => {
     dataDir = await makeDataDir();
-    app = await openTestApp({ dataDir, config: testConfig({ dataDir }) });
+    app = await openTestApp({ dataDir });
   });
 
   afterAll(async () => {
@@ -132,7 +132,7 @@ describe('accounts, memories, and tokens', () => {
     ).toBe(401);
 
     await app.close();
-    app = await openTestApp({ dataDir, config: testConfig({ dataDir }) });
+    app = await openTestApp({ dataDir });
     const relogin = await call(app, 'POST', '/api/auth/login', {
       payload: { email: 'ada@example.com', password: 'password-ada' },
     });

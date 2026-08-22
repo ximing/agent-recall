@@ -1,8 +1,6 @@
 import { spawn } from 'node:child_process';
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
-import { bootStandin, mcpRoot, readJson, sessionFrom, startServer, stopProcess, waitForHealth } from './support.js';
+import { createSchemaName, dropSchema } from '../src/db/client.js';
+import { bootStandin, launchDatabaseUrl, mcpRoot, readJson, sessionFrom, startServer, stopProcess, waitForHealth } from './support.js';
 
 interface RpcMessage {
   id?: number;
@@ -11,10 +9,11 @@ interface RpcMessage {
 }
 
 const port = Number(process.env.MCP_LAUNCH_PORT ?? 8792);
-const dataDir = process.env.MCP_LAUNCH_DATA_DIR ?? (await mkdtemp(path.join(tmpdir(), 'agent-recall-mcp-')));
+const databaseUrl = launchDatabaseUrl();
+const schema = createSchemaName();
 const standin = await bootStandin();
 const base = `http://127.0.0.1:${String(port)}`;
-const server = startServer({ port, dataDir, standin });
+const server = startServer({ port, databaseUrl, schema, standin });
 server.stdout?.on('data', (chunk: Buffer) => process.stdout.write(`[server] ${chunk.toString()}`));
 server.stderr?.on('data', (chunk: Buffer) => process.stderr.write(`[server] ${chunk.toString()}`));
 
@@ -121,6 +120,10 @@ try {
     await stopProcess(denied.child);
   }
 } finally {
-  await stopProcess(server);
-  await standin.close();
+  try {
+    await stopProcess(server);
+    await standin.close();
+  } finally {
+    await dropSchema(databaseUrl, schema);
+  }
 }

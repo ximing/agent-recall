@@ -1,10 +1,9 @@
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
-import { bootStandin, readJson, sessionFrom, startServer, stopProcess, waitForHealth } from './support.js';
+import { createSchemaName, dropSchema } from '../src/db/client.js';
+import { bootStandin, launchDatabaseUrl, readJson, sessionFrom, startServer, stopProcess, waitForHealth } from './support.js';
 
 const port = Number(process.env.LAUNCH_PORT ?? 8791);
-const dataDir = process.env.LAUNCH_DATA_DIR ?? (await mkdtemp(path.join(tmpdir(), 'agent-recall-launch-')));
+const databaseUrl = launchDatabaseUrl();
+const schema = createSchemaName();
 const email = `launch-${String(Date.now())}@example.com`;
 const password = 'launch-password';
 const content = `双进程记忆-${String(Date.now())}`;
@@ -13,7 +12,7 @@ const standin = await bootStandin();
 const base = `http://127.0.0.1:${String(port)}`;
 
 function spawnOnce() {
-  const child = startServer({ port, dataDir, standin });
+  const child = startServer({ port, databaseUrl, schema, standin });
   child.stdout?.on('data', (chunk: Buffer) => process.stdout.write(`[server] ${chunk.toString()}`));
   child.stderr?.on('data', (chunk: Buffer) => process.stderr.write(`[server] ${chunk.toString()}`));
   return child;
@@ -32,6 +31,7 @@ async function recall(cookie: string): Promise<{ id: string; content: string }> 
   return hit;
 }
 
+try {
 const first = spawnOnce();
 try {
   await waitForHealth(base);
@@ -82,5 +82,11 @@ try {
   console.log(`PASS second process id=${again.id} content=${again.content}`);
 } finally {
   await stopProcess(second);
-  await standin.close();
+}
+} finally {
+  try {
+    await standin.close();
+  } finally {
+    await dropSchema(databaseUrl, schema);
+  }
 }

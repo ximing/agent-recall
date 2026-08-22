@@ -6,7 +6,7 @@ import { importMemories } from '../memories/governance.js';
 import type { MemoryDeps } from '../memories/service.js';
 
 function deps(app: FastifyInstance): MemoryDeps {
-  return { db: app.ctx.db, retrieval: app.ctx.retrieval, dataDir: app.ctx.config.dataDir };
+  return { db: app.ctx.db, retrieval: app.ctx.retrieval, encryptionKey: app.ctx.config.ENCRYPTION_KEY };
 }
 
 /** SSRF 防护：只允许私网/loopback 目标 */

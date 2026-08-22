@@ -15,7 +15,6 @@ describe('memory lifecycle, governance, and hooks context', () => {
     standin = await startProtocolStandin();
     dataDir = await makeDataDir();
     const config = testConfig({
-      dataDir,
       MEILI_URL: standin.url,
       MEILI_API_KEY: 'meili-test',
       QDRANT_URL: standin.url,
@@ -112,6 +111,13 @@ describe('memory lifecycle, governance, and hooks context', () => {
 
     const forbidden = await call(app, 'POST', '/api/hooks/context', { cookie, payload: { query: 'RRF' } });
     expect(forbidden.status).toBe(403);
+
+    const preview = await call(app, 'POST', '/api/memories/context', {
+      cookie,
+      payload: { query: 'RRF 融合权重', tokenBudget: 500, project: 'agent-recall' },
+    });
+    expect(preview.status).toBe(200);
+    expect(String(preview.body?.context ?? '')).toContain('RRF');
   });
 
   it('summarizes a session on SessionEnd and lists sessions', async () => {

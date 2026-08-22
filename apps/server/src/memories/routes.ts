@@ -1,6 +1,7 @@
 import {
   batchForgetSchema,
   consolidateSchema,
+  hookContextSchema,
   importSchema,
   memoryCreateSchema,
   memoryFilterSchema,
@@ -23,6 +24,7 @@ import {
 } from './service.js';
 import { autoForget, batchForget, exportMemories, importMemories, memoryStats } from './governance.js';
 import { createSessionSummary, listSessions, sessionTimeline } from './sessions.js';
+import { buildInjectedContext } from './context.js';
 import { consolidateMemories, reflectMemories, sharedFeed, shareMemory } from './ops.js';
 import { listRecallLogs } from './recall-log.js';
 
@@ -56,7 +58,7 @@ function parseListQuery(req: FastifyRequest): { filter?: MemoryFilter; limit?: n
 }
 
 export function registerMemoryRoutes(app: FastifyInstance): void {
-  const deps = () => ({ db: app.ctx.db, retrieval: app.ctx.retrieval, dataDir: app.ctx.config.dataDir });
+  const deps = () => ({ db: app.ctx.db, retrieval: app.ctx.retrieval, encryptionKey: app.ctx.config.ENCRYPTION_KEY });
 
   app.get('/api/memories/recall-logs', { preHandler: [app.authenticate] }, async (req) => {
     const actor = requireActor(req);
@@ -80,6 +82,13 @@ export function registerMemoryRoutes(app: FastifyInstance): void {
       deep: true,
     });
     return { memories: result.memories, scores: result.scores, strategy: result.strategy };
+  });
+
+  /** 控制台预览插件注入。格式与 /api/hooks/context 相同，网页 session 也能调用。 */
+  app.post('/api/memories/context', { preHandler: [app.authenticate] }, async (req) => {
+    const actor = requireActor(req);
+    const input = hookContextSchema.parse(req.body);
+    return buildInjectedContext(deps(), actor.userId, input);
   });
 
   app.get('/api/memories/stats', { preHandler: [app.authenticate] }, async (req) => {

@@ -16,8 +16,8 @@ import { recordRecallLog } from './recall-log.js';
 export interface MemoryDeps {
   db: Database;
   retrieval: RetrievalPorts;
-  /** 敏感设置加解密密钥所在数据目录 */
-  dataDir: string;
+  /** 环境变量 ENCRYPTION_KEY，用来解密用户的精排 API Key */
+  encryptionKey: string;
 }
 
 /** 内容哈希去重窗口：同一用户 5 分钟内写入相同规范化内容视为重复 */
@@ -328,8 +328,8 @@ export async function markAccessed(deps: MemoryDeps, userId: string, ids: string
   }
 }
 
-function buildReranker(settings: UserSettingsRow, dataDir: string): Reranker | undefined {
-  const apiKey = getRerankApiKey(settings, dataDir);
+function buildReranker(settings: UserSettingsRow, encryptionKey: string): Reranker | undefined {
+  const apiKey = getRerankApiKey(settings, encryptionKey);
   if (!settings.rerankEnabled || !apiKey) return undefined;
   const client = createRerankClient({
     apiKey,
@@ -365,7 +365,7 @@ export async function recallForUser(
   options: { filter?: MemoryFilter; deep?: boolean } = {},
 ): Promise<RecallResult> {
   const settings = await getSettings(deps.db, userId);
-  const reranker = buildReranker(settings, deps.dataDir);
+  const reranker = buildReranker(settings, deps.encryptionKey);
   const started = performance.now();
   const outcome = await recallMemories(deps.db, deps.retrieval, userId, query, limit, {
     reranker,

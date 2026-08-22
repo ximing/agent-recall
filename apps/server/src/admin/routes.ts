@@ -10,7 +10,7 @@ import { reindexPending } from '../retrieval/recall.js';
 import { getRerankApiKey, getSettings } from '../settings/service.js';
 
 function deps(app: FastifyInstance): MemoryDeps {
-  return { db: app.ctx.db, retrieval: app.ctx.retrieval, dataDir: app.ctx.config.dataDir };
+  return { db: app.ctx.db, retrieval: app.ctx.retrieval, encryptionKey: app.ctx.config.ENCRYPTION_KEY };
 }
 
 async function pendingIndexCount(app: FastifyInstance, userId: string): Promise<number> {
@@ -66,7 +66,7 @@ export function registerAdminRoutes(app: FastifyInstance): void {
       });
     }
     const settings = await getSettings(d.db, actor.userId);
-    if (settings.rerankEnabled && !getRerankApiKey(settings, d.dataDir)) {
+    if (settings.rerankEnabled && !getRerankApiKey(settings, d.encryptionKey)) {
       problems.push({
         code: 'RERANK_NO_KEY',
         message: '已开启精排但未配置 API Key，实际回退为 RRF',
