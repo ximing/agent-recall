@@ -974,6 +974,20 @@ function kvEntryValue(payload: unknown): unknown {
   return (entry as Record<string, unknown>).value;
 }
 
+/**
+ * GET /api/memories/:id returns `{ memory }`. Tools that read fields
+ * (type, content, tags) need the inner object, not the envelope.
+ */
+function unwrapMemory(payload: unknown): Record<string, unknown> {
+  if (typeof payload !== 'object' || payload === null) {
+    throw new JsonRpcError(-32603, 'memory payload is empty');
+  }
+  const record = payload as Record<string, unknown>;
+  const nested = record.memory;
+  if (typeof nested === 'object' && nested !== null) return nested as Record<string, unknown>;
+  return record;
+}
+
 function hasMemories(payload: unknown): boolean {
   return (
     typeof payload === 'object' &&
@@ -1178,7 +1192,7 @@ async function callTool(params: Record<string, unknown>): Promise<unknown> {
 
     case 'memory_sketch_promote': {
       const id = requiredUuid(args, 'id');
-      const current = (await api(`/api/memories/${id}`)) as Record<string, unknown>;
+      const current = unwrapMemory(await api(`/api/memories/${id}`));
       const tags = Array.isArray(current.tags) ? (current.tags as unknown[]).filter((t) => t !== 'sketch') : [];
       const body: Record<string, unknown> = {
         content: current.content,
@@ -1369,7 +1383,7 @@ async function callTool(params: Record<string, unknown>): Promise<unknown> {
 
     case 'memory_lesson_delete': {
       const id = requiredUuid(args, 'id');
-      const memory = (await api(`/api/memories/${id}`)) as Record<string, unknown>;
+      const memory = unwrapMemory(await api(`/api/memories/${id}`));
       if (memory.type !== 'lesson') {
         throw new JsonRpcError(-32602, `memory ${id} is not a lesson (type: ${String(memory.type)})`);
       }
@@ -1481,7 +1495,7 @@ async function callTool(params: Record<string, unknown>): Promise<unknown> {
       const dimension = requiredString(args, 'dimension');
       const value = requiredString(args, 'value');
       const facet = `${dimension}:${value}`;
-      const current = (await api(`/api/memories/${id}`)) as Record<string, unknown>;
+      const current = unwrapMemory(await api(`/api/memories/${id}`));
       const tags = Array.isArray(current.tags) ? (current.tags as string[]) : [];
       if (!tags.includes(facet)) tags.push(facet);
       const body = { content: current.content, tags };
@@ -1495,7 +1509,7 @@ async function callTool(params: Record<string, unknown>): Promise<unknown> {
         return { content: [{ type: 'text', text: `exists: false\nid: ${id}` }] };
       }
       if (status < 200 || status >= 300) throw new JsonRpcError(-32603, `API ${String(status)}`);
-      const memory = json as Record<string, unknown>;
+      const memory = unwrapMemory(json);
       let isLatest: boolean | undefined;
       try {
         const versionsPayload = (await api(`/api/memories/${id}/versions`)) as Record<string, unknown>;
