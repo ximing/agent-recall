@@ -1,0 +1,85 @@
+/* ============ 关系页 ============ */
+.graph-split {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 20px;
+  align-items: start;
+}
+.graph-toolbar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.graph-toolbar .search-box { padding-top: 0; padding-bottom: 0; }
+.graph-toolbar .search-box input { font-size: 14px; padding: 10px 0; }
+.graph-canvas-wrap {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.graph-canvas-wrap svg { display: block; width: 100%; height: auto; }
+.graph-node { cursor: pointer; }
+.graph-node circle { transition: stroke-width .15s ease; }
+.graph-legend {
+  position: absolute;
+  left: 14px;
+  bottom: 14px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+.graph-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.graph-legend .dot { width: 8px; height: 8px; border-radius: 50%; }
+.node-panel {
+  position: sticky;
+  top: 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.node-panel-head {
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.node-panel-head .kind { margin-bottom: 6px; }
+.node-panel-head .name {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: .03em;
+  word-break: break-all;
+  line-height: 1.45;
+}
+.node-panel-body { padding: 14px 18px 18px; }
+.node-panel-body h3 {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-3);
+  letter-spacing: .1em;
+  margin: 12px 0 8px;
+}
+.node-panel-body h3:first-child { margin-top: 0; }
+.edge-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.edge-list li {
+  font-size: 13px;
+  color: var(--ink-2);
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+}
+.edge-list .rel { color: var(--accent); flex: none; font-size: 12px; }
+@media (max-width: 1000px) {
+  .graph-split { grid-template-columns: 1fr; }
+  .node-panel { position: static; }
+}

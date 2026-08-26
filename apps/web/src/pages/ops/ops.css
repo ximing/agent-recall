@@ -1,0 +1,88 @@
+/* ============ 治理页 ============ */
+.health-strip {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 16px 22px;
+  margin-bottom: 20px;
+  border: 1px solid var(--ok);
+  border-radius: var(--radius);
+  background: var(--ok-soft);
+}
+.health-strip.warn { border-color: var(--gold-line); background: var(--gold-bg); }
+.health-strip.idle { border-color: var(--line); background: var(--surface); }
+.health-strip .pulse {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--ok);
+  flex: none;
+}
+.health-strip.warn .pulse { background: var(--gold-ink); }
+.health-strip.idle .pulse { background: var(--ink-3); }
+.health-strip .title { font-weight: 600; }
+.health-strip .sub { font-size: 12.5px; color: var(--ink-2); }
+.health-strip .head-actions { margin-left: auto; }
+
+.ops-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.ops-card {
+  display: flex;
+  flex-direction: column;
+  padding: 18px 20px 16px;
+}
+.ops-card.full { grid-column: 1 / -1; }
+.ops-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+.ops-card-head h2 {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: .05em;
+}
+.ops-card > .desc {
+  font-size: 13px;
+  color: var(--ink-2);
+  max-width: 56ch;
+  margin-bottom: 14px;
+}
+.ops-card .result {
+  font-size: 13px;
+  color: var(--ink-2);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  margin-bottom: 14px;
+}
+.ops-card .result.danger-text { color: var(--danger); background: var(--danger-soft); border-color: var(--danger-line); }
+.ops-card-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+  flex-wrap: wrap;
+}
+.ops-card-foot .spacer { margin-left: auto; }
+.ops-card-foot .field { width: auto; flex: 1; min-width: 130px; padding: 7px 11px; font-size: 13px; }
+.ops-card-foot .field.mini { flex: none; width: 84px; }
+.ops-card .kv-row { padding-left: 0; padding-right: 0; }
+.ops-card .kv-row:hover { background: none; }
+.problem-list { list-style: none; display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.problem-list li {
+  border-left: 3px solid var(--gold-line);
+  background: var(--gold-bg);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+.problem-list .fix { color: var(--ink-2); font-size: 12.5px; margin-top: 2px; }
+@media (max-width: 900px) {
+  .ops-grid { grid-template-columns: 1fr; }
+}

@@ -1,7 +1,8 @@
 import { bindServices, observer, useService } from '@rabjs/react';
-import { useNavigate } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { ROUTES } from '@/routes';
 import { LoginService } from './login.service';
+import './login.css';
 
 const LoginPage = observer(function LoginPage() {
   const service = useService(LoginService);
@@ -52,6 +53,9 @@ const LoginPage = observer(function LoginPage() {
         >
           {service.mode === 'login' ? '没有账号？去注册' : '已有账号？去登录'}
         </button>
+        <p className="login-back">
+          <Link to={ROUTES.home}>先看说明</Link>
+        </p>
       </section>
     </main>
   );

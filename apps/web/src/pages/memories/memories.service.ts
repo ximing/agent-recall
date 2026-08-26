@@ -1,5 +1,6 @@
 import type {
   ImportStrategy,
+  MemoryFilter,
   MemoryListQuery,
   MemoryPublic,
   MemoryStats,
@@ -11,6 +12,7 @@ import { api, errorMessage } from '@/api/client';
 
 export type MemorySort = 'created-desc' | 'updated-desc' | 'created-asc';
 export type DrawerMode = 'closed' | 'view' | 'new' | 'edit';
+export type SearchMode = 'recall' | 'smart';
 
 /** 编辑/新建时除内容外的元数据 */
 export type MemoryMetaInput = {
@@ -18,7 +20,26 @@ export type MemoryMetaInput = {
   tags?: string[];
   /** null = 清除过期时间（仅编辑时有意义） */
   expiresAt?: string | null;
+  project?: string;
+  sessionId?: string;
 };
+
+function splitTags(raw: string): string[] | undefined {
+  const tags = raw
+    .split(/[,，]/)
+    .map((tag) => tag.trim())
+    .filter((tag) => tag.length > 0);
+  return tags.length > 0 ? tags : undefined;
+}
+
+/** datetime-local 没有时区，转成带偏移的 ISO 再交给接口 */
+function toOffsetIso(local: string): string | undefined {
+  const trimmed = local.trim();
+  if (!trimmed) return undefined;
+  const date = new Date(trimmed);
+  if (Number.isNaN(date.getTime())) return undefined;
+  return date.toISOString();
+}
 
 const PAGE_SIZE = 50;
 
@@ -41,8 +62,14 @@ export class MemoriesService extends Service {
   typeFilter: MemoryType | 'all' = 'all';
   projectFilter = '';
   sessionFilter = '';
+  tagsFilter = '';
+  createdAfter = '';
+  createdBefore = '';
   includeExpired = false;
   sort: MemorySort = 'created-desc';
+  searchMode: SearchMode = 'recall';
+  strategy: string | null = null;
+  scoreById: Record<string, number> = {};
   private filterTimer: ReturnType<typeof setTimeout> | null = null;
 
   /** 非 null 表示处于召回模式，按相关度排序 */
@@ -51,8 +78,29 @@ export class MemoriesService extends Service {
   private recallTimer: ReturnType<typeof setTimeout> | null = null;
   private recallSeq = 0;
 
+  /** 按当前筛选删除 */
+  filterPreview: number | null = null;
+  filterBusy = false;
+
+  /** 注入预览，与插件 POST /api/hooks/context 同一套裁剪 */
+  contextOpen = false;
+  contextText = '';
+  contextMemoryCount = 0;
+  contextNote: string | null = null;
+  contextBusy = false;
+
+  /** 抽屉：分享、相关记忆 */
+  shareEmail = '';
+  shareNote: string | null = null;
+  shareBusy = false;
+  related: MemoryPublic[] = [];
+  relatedLoading = false;
+  private relatedSeq = 0;
+
   drawerMode: DrawerMode = 'closed';
   activeId: string | null = null;
+  /** 当前打开的记忆。筛选把新版本滤掉时，抽屉仍用这份，不回退成空编辑器。 */
+  opened: MemoryPublic | null = null;
   pendingDeleteId: string | null = null;
 
   /** 版本历史（抽屉内） */
@@ -101,18 +149,17 @@ export class MemoriesService extends Service {
       this.typeFilter !== 'all' ||
       this.projectFilter.trim().length > 0 ||
       this.sessionFilter.trim().length > 0 ||
+      this.tagsFilter.trim().length > 0 ||
+      this.createdAfter.trim().length > 0 ||
+      this.createdBefore.trim().length > 0 ||
       this.includeExpired
     );
   }
 
   get visible(): MemoryPublic[] {
     if (this.searchResults) {
-      // 召回结果保持相关度顺序，来源/类型筛选在客户端叠加
-      return this.searchResults.filter(
-        (m) =>
-          (this.originFilter === 'all' || m.origin === this.originFilter) &&
-          (this.typeFilter === 'all' || m.type === this.typeFilter),
-      );
+      // 召回已经带上筛选，保持服务端的相关度顺序
+      return this.searchResults;
     }
     // 列表模式：筛选已在服务端完成，排序只作用于已加载的页
     return [...this.memories].sort(SORTERS[this.sort]);
@@ -123,7 +170,7 @@ export class MemoriesService extends Service {
     return (
       this.memories.find((m) => m.id === this.activeId) ??
       this.searchResults?.find((m) => m.id === this.activeId) ??
-      null
+      (this.opened?.id === this.activeId ? this.opened : null)
     );
   }
 
@@ -139,35 +186,74 @@ export class MemoriesService extends Service {
 
   setOriginFilter(origin: Origin | 'all'): void {
     this.originFilter = origin;
-    if (!this.isRecalling) void this.fetchList(0, false);
+    this.refreshFilters(true);
   }
 
   setTypeFilter(type: MemoryType | 'all'): void {
     this.typeFilter = type;
-    if (!this.isRecalling) void this.fetchList(0, false);
+    this.refreshFilters(true);
   }
 
   setIncludeExpired(value: boolean): void {
     this.includeExpired = value;
-    if (!this.isRecalling) void this.fetchList(0, false);
+    this.refreshFilters(true);
   }
 
   setProjectFilter(value: string): void {
     this.projectFilter = value;
-    this.scheduleReload();
+    this.refreshFilters(false);
   }
 
   setSessionFilter(value: string): void {
     this.sessionFilter = value;
-    this.scheduleReload();
+    this.refreshFilters(false);
+  }
+
+  setTagsFilter(value: string): void {
+    this.tagsFilter = value;
+    this.refreshFilters(false);
+  }
+
+  setCreatedAfter(value: string): void {
+    this.createdAfter = value;
+    this.refreshFilters(true);
+  }
+
+  setCreatedBefore(value: string): void {
+    this.createdBefore = value;
+    this.refreshFilters(true);
+  }
+
+  setSearchMode(mode: SearchMode): void {
+    if (this.searchMode === mode) return;
+    this.searchMode = mode;
+    if (this.query.trim()) this.scheduleRecall();
   }
 
   setSort(sort: MemorySort): void {
     this.sort = sort;
   }
 
-  private scheduleReload(): void {
-    if (this.isRecalling) return;
+  /** 有搜索词时重跑召回（筛选随请求带上），否则刷新列表 */
+  private refreshFilters(immediate: boolean): void {
+    this.filterPreview = null;
+    const query = this.query.trim();
+    if (query) {
+      if (immediate) {
+        if (this.recallTimer) {
+          clearTimeout(this.recallTimer);
+          this.recallTimer = null;
+        }
+        void this.recall(query);
+      } else {
+        this.scheduleRecall();
+      }
+      return;
+    }
+    if (immediate) {
+      void this.fetchList(0, false);
+      return;
+    }
     if (this.filterTimer) clearTimeout(this.filterTimer);
     this.filterTimer = setTimeout(() => void this.fetchList(0, false), 350);
   }
@@ -184,6 +270,8 @@ export class MemoriesService extends Service {
     this.cancelRecall();
     this.searchResults = null;
     this.searching = false;
+    this.strategy = null;
+    this.scoreById = {};
     // 召回期间可能写入过新记忆，退出搜索时静默同步一次
     void this.fetchList(0, false);
   }
@@ -211,14 +299,33 @@ export class MemoriesService extends Service {
 
   private async recall(query: string): Promise<void> {
     const seq = ++this.recallSeq;
+    this.searching = true;
     try {
-      const result = await api.recallMemories(query);
+      const input = { query, limit: 50 as const, filter: this.buildFilter() };
       if (seq !== this.recallSeq || query !== this.query.trim()) return;
-      this.searchResults = result.memories;
+      if (this.searchMode === 'smart') {
+        const result = await api.smartSearch(input);
+        if (seq !== this.recallSeq || query !== this.query.trim()) return;
+        this.searchResults = result.memories;
+        this.strategy = result.strategy;
+        const scores: Record<string, number> = {};
+        result.memories.forEach((memory, index) => {
+          const score = result.scores[index];
+          if (typeof score === 'number') scores[memory.id] = score;
+        });
+        this.scoreById = scores;
+      } else {
+        const result = await api.recallMemories(input);
+        if (seq !== this.recallSeq || query !== this.query.trim()) return;
+        this.searchResults = result.memories;
+        this.strategy = 'rrf';
+        this.scoreById = {};
+      }
     } catch (err) {
       if (seq !== this.recallSeq) return;
       this.error = errorMessage(err, '召回失败');
       this.searchResults = [];
+      this.scoreById = {};
     } finally {
       if (seq === this.recallSeq) this.searching = false;
     }
@@ -229,6 +336,7 @@ export class MemoriesService extends Service {
   openNew(): void {
     this.drawerMode = 'new';
     this.activeId = null;
+    this.opened = null;
     this.pendingDeleteId = null;
     this.resetVersions();
   }
@@ -236,12 +344,19 @@ export class MemoriesService extends Service {
   openView(memory: MemoryPublic): void {
     this.drawerMode = 'view';
     this.activeId = memory.id;
+    this.opened = memory;
     this.pendingDeleteId = null;
+    this.shareEmail = '';
+    this.shareNote = null;
     this.resetVersions();
+    void this.loadRelations(memory.id);
   }
 
   openEdit(memory?: MemoryPublic): void {
-    if (memory) this.activeId = memory.id;
+    if (memory) {
+      this.activeId = memory.id;
+      this.opened = memory;
+    }
     this.drawerMode = 'edit';
     this.pendingDeleteId = null;
     this.resetVersions();
@@ -250,7 +365,12 @@ export class MemoriesService extends Service {
   closeDrawer(): void {
     this.drawerMode = 'closed';
     this.activeId = null;
+    this.opened = null;
     this.pendingDeleteId = null;
+    this.shareEmail = '';
+    this.shareNote = null;
+    this.related = [];
+    this.relatedSeq += 1;
     this.resetVersions();
   }
 
@@ -429,15 +549,29 @@ export class MemoriesService extends Service {
 
   /* ---------- 列表 / 统计 ---------- */
 
+  private buildFilter(): MemoryFilter | undefined {
+    const filter: MemoryFilter = {};
+    if (this.originFilter !== 'all') filter.origin = [this.originFilter];
+    if (this.typeFilter !== 'all') filter.type = [this.typeFilter];
+    const project = this.projectFilter.trim();
+    const sessionId = this.sessionFilter.trim();
+    const tags = splitTags(this.tagsFilter);
+    const createdAfter = toOffsetIso(this.createdAfter);
+    const createdBefore = toOffsetIso(this.createdBefore);
+    if (project) filter.project = project;
+    if (sessionId) filter.sessionId = sessionId;
+    if (tags) filter.tags = tags;
+    if (createdAfter) filter.createdAfter = createdAfter;
+    if (createdBefore) filter.createdBefore = createdBefore;
+    if (this.includeExpired) filter.includeExpired = true;
+    return Object.keys(filter).length > 0 ? filter : undefined;
+  }
+
   private buildQuery(offset: number): MemoryListQuery {
     return {
       limit: PAGE_SIZE,
       offset,
-      origin: this.originFilter === 'all' ? undefined : [this.originFilter],
-      type: this.typeFilter === 'all' ? undefined : [this.typeFilter],
-      project: this.projectFilter.trim() || undefined,
-      sessionId: this.sessionFilter.trim() || undefined,
-      includeExpired: this.includeExpired || undefined,
+      ...this.buildFilter(),
     };
   }
 
@@ -484,6 +618,8 @@ export class MemoriesService extends Service {
         content,
         type: meta.type,
         tags: meta.tags?.length ? meta.tags : undefined,
+        project: meta.project?.trim() || undefined,
+        sessionId: meta.sessionId?.trim() || undefined,
         expiresAt: meta.expiresAt ?? undefined,
       });
       this.closeDrawer();
@@ -512,6 +648,145 @@ export class MemoriesService extends Service {
       await this.load();
     } catch (err) {
       this.error = errorMessage(err, '更新记忆失败');
+    }
+  }
+
+  /* ---------- 按筛选删除 ---------- */
+
+  async previewFilterForget(): Promise<void> {
+    const filter = this.buildFilter();
+    if (!filter) {
+      this.error = '先选一个筛选条件';
+      return;
+    }
+    this.error = null;
+    this.filterBusy = true;
+    try {
+      const result = await api.batchForget({ filter, dryRun: true });
+      this.filterPreview = result.matched;
+    } catch (err) {
+      this.error = errorMessage(err, '预览筛选删除失败');
+    } finally {
+      this.filterBusy = false;
+    }
+  }
+
+  cancelFilterForget(): void {
+    this.filterPreview = null;
+  }
+
+  async confirmFilterForget(): Promise<void> {
+    const filter = this.buildFilter();
+    if (!filter) return;
+    this.error = null;
+    this.filterBusy = true;
+    try {
+      await api.batchForget({ filter });
+      this.filterPreview = null;
+      this.clearSearch();
+      await this.load();
+    } catch (err) {
+      this.error = errorMessage(err, '按筛选删除失败');
+    } finally {
+      this.filterBusy = false;
+    }
+  }
+
+  /* ---------- 注入预览 ---------- */
+
+  async previewContext(): Promise<void> {
+    const query = this.query.trim();
+    this.contextOpen = true;
+    if (!query) {
+      this.contextText = '';
+      this.contextMemoryCount = 0;
+      this.contextNote = '先在搜索框写一句要注入的问题。';
+      return;
+    }
+    this.contextBusy = true;
+    this.contextNote = null;
+    this.error = null;
+    try {
+      const result = await api.previewContext({
+        query,
+        tokenBudget: 2000,
+        project: this.projectFilter.trim() || undefined,
+      });
+      this.contextText = result.context;
+      this.contextMemoryCount = result.memories.length;
+      this.contextNote = result.context ? null : '没有可注入的记忆。钩子碎片不参与注入。';
+    } catch (err) {
+      this.error = errorMessage(err, '预览注入失败');
+    } finally {
+      this.contextBusy = false;
+    }
+  }
+
+  closeContext(): void {
+    this.contextOpen = false;
+  }
+
+  /* ---------- 分享 / 相关 / 草图转正 ---------- */
+
+  setShareEmail(value: string): void {
+    this.shareEmail = value;
+  }
+
+  async shareActive(): Promise<void> {
+    if (!this.activeId) return;
+    const email = this.shareEmail.trim();
+    if (!email) {
+      this.error = '填写对方的邮箱';
+      return;
+    }
+    this.shareBusy = true;
+    this.shareNote = null;
+    this.error = null;
+    try {
+      await api.shareMemory(this.activeId, email);
+      this.shareNote = `已复制给 ${email}。对方库里会多一条带 shared 标签的记忆。`;
+    } catch (err) {
+      this.error = errorMessage(err, '分享失败');
+    } finally {
+      this.shareBusy = false;
+    }
+  }
+
+  async loadRelations(id: string): Promise<void> {
+    const seq = ++this.relatedSeq;
+    this.relatedLoading = true;
+    this.related = [];
+    try {
+      const result = await api.memoryRelations(id);
+      if (seq !== this.relatedSeq) return;
+      this.related = result.related;
+    } catch (err) {
+      if (seq !== this.relatedSeq) return;
+      this.error = errorMessage(err, '读取相关记忆失败');
+    } finally {
+      if (seq === this.relatedSeq) this.relatedLoading = false;
+    }
+  }
+
+  async promoteSketch(): Promise<void> {
+    const memory = this.activeMemory;
+    if (!memory || !memory.tags.includes('sketch')) return;
+    this.error = null;
+    try {
+      const result = await api.updateMemory(memory.id, {
+        content: memory.content,
+        type: memory.type,
+        tags: memory.tags.filter((tag) => tag !== 'sketch'),
+        expiresAt: null,
+      });
+      this.opened = result.memory;
+      this.activeId = result.memory.id;
+      this.drawerMode = 'view';
+      await this.load();
+      if (this.query.trim()) await this.recall(this.query.trim());
+      void this.loadRelations(result.memory.id);
+    } catch (err) {
+      this.error = errorMessage(err, '草图转正失败');
     }
   }
 }

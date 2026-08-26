@@ -1,23 +1,39 @@
 import { bindServices, observer, useService } from '@rabjs/react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { MarkdownView } from '@/components/MarkdownView';
 import { formatTime } from '@/utils/format';
 import { ORIGIN_LABEL, TYPE_LABEL } from '@/utils/labels';
 import { SessionsService } from './sessions.service';
+import './sessions.css';
 
 const SessionsPage = observer(function SessionsPage() {
   const service = useService(SessionsService);
+  const [filter, setFilter] = useState('');
 
   useEffect(() => {
     void service.load();
   }, [service]);
 
+  const keyword = filter.trim().toLowerCase();
+  const visible = keyword
+    ? service.sessions.filter(
+        (session) =>
+          session.sessionId.toLowerCase().includes(keyword) ||
+          session.projects.some((project) => project.toLowerCase().includes(keyword)),
+      )
+    : service.sessions;
+
+  const active = service.sessions.find((session) => session.sessionId === service.activeId) ?? null;
+  const hookCount = service.activeMemories.filter((memory) => memory.origin === 'hook').length;
+  const summaryCount = service.activeMemories.filter((memory) => memory.origin === 'summary').length;
+
   return (
     <section className="page">
       <header className="page-head">
-        <h1>会话</h1>
-        <p className="desc">按会话回看钩子与代理写下的记忆时间线，钩子碎片与摘要样式不同。</p>
+        <div>
+          <h1>会话</h1>
+          <p className="desc">按会话回看钩子与代理写下的记忆时间线，钩子碎片与摘要样式不同。</p>
+        </div>
       </header>
 
       {service.error ? (
@@ -32,35 +48,103 @@ const SessionsPage = observer(function SessionsPage() {
           <p>接入钩子或 MCP 后，代理工作过程中产生的记忆会按会话归组到这里。</p>
         </div>
       ) : (
-        <div className="mlist">
-          {service.sessions.map((session) => {
-            const open = service.activeId === session.sessionId;
-            return (
-              <article key={session.sessionId} className={`srow${open ? ' open' : ''}`}>
-                <header className="srow-head" onClick={() => void service.toggle(session.sessionId)}>
-                  {open ? (
-                    <ChevronDown size={14} strokeWidth={1.8} />
-                  ) : (
-                    <ChevronRight size={14} strokeWidth={1.8} />
-                  )}
-                  <span className="mono sid">{session.sessionId}</span>
-                  <span className="mcard-tag web">{session.memoryCount} 条</span>
-                  <span className="mrow-time">
-                    {formatTime(session.firstAt)} ~ {formatTime(session.lastAt)}
-                  </span>
-                  <span className="srow-projects">
-                    {session.projects.map((project) => (
-                      <span key={project} className="mini-tag">
-                        {project}
+        <div className="md-split">
+          <div className="sess-list">
+            <div className="sess-list-head">
+              <input
+                placeholder="按会话 ID 或项目筛选…"
+                value={filter}
+                onChange={(event) => setFilter(event.target.value)}
+              />
+            </div>
+            <div className="sess-scroll">
+              {visible.length === 0 ? (
+                <p className="composer-hint" style={{ padding: '14px' }}>
+                  没有匹配的会话。
+                </p>
+              ) : (
+                visible.map((session) => (
+                  <button
+                    key={session.sessionId}
+                    type="button"
+                    className={`sess-item${service.activeId === session.sessionId ? ' active' : ''}`}
+                    onClick={() => void service.select(session.sessionId)}
+                  >
+                    <span className="sid">{session.sessionId}</span>
+                    <span className="meta">
+                      <span className="mcard-tag web">{session.memoryCount} 条</span>
+                      <span>{formatTime(session.lastAt)}</span>
+                      {session.projects.slice(0, 2).map((project) => (
+                        <span key={project} className="proj">
+                          {project}
+                        </span>
+                      ))}
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="sess-detail">
+            {!active ? (
+              <div className="empty">
+                <p className="empty-title">选择一个会话</p>
+                <p>从左侧列表挑一个会话，右侧会展开它的完整记忆时间线。</p>
+              </div>
+            ) : (
+              <>
+                <div className="sess-detail-head">
+                  <div>
+                    <span className="sid">{active.sessionId}</span>
+                    <div className="meta">
+                      {active.projects.map((project) => (
+                        <span key={project} className="mini-tag">
+                          {project}
+                        </span>
+                      ))}
+                      <span className="composer-hint">
+                        {formatTime(active.firstAt)} ~ {formatTime(active.lastAt)}
                       </span>
-                    ))}
-                  </span>
-                </header>
-                {open ? (
-                  <div className="srow-body">
-                    {service.detailLoading ? (
-                      <p className="composer-hint">时间线加载中…</p>
-                    ) : service.activeMemories.length === 0 ? (
+                    </div>
+                  </div>
+                  <div className="head-actions">
+                    <button
+                      type="button"
+                      className="btn"
+                      title="把本会话的钩子观察收成一条摘要。同一小时内重复结晶不会再写一条。"
+                      disabled={service.crystallizing}
+                      onClick={() => void service.crystallize(active.sessionId)}
+                    >
+                      {service.crystallizing ? '结晶中…' : '结晶为摘要'}
+                    </button>
+                  </div>
+                </div>
+                {service.crystalMessage ? (
+                  <p className="settings-saved" style={{ marginBottom: 14 }}>
+                    {service.crystalMessage}
+                  </p>
+                ) : null}
+
+                {service.detailLoading ? (
+                  <p className="composer-hint">时间线加载中…</p>
+                ) : (
+                  <>
+                    <div className="sess-summary-strip">
+                      <div>
+                        <p className="num">{service.activeMemories.length}</p>
+                        <p className="label">记忆</p>
+                      </div>
+                      <div>
+                        <p className="num">{hookCount}</p>
+                        <p className="label">钩子观察</p>
+                      </div>
+                      <div>
+                        <p className="num">{summaryCount}</p>
+                        <p className="label">摘要</p>
+                      </div>
+                    </div>
+                    {service.activeMemories.length === 0 ? (
                       <p className="composer-hint">这个会话没有记忆。</p>
                     ) : (
                       <div className="tl">
@@ -81,11 +165,11 @@ const SessionsPage = observer(function SessionsPage() {
                         ))}
                       </div>
                     )}
-                  </div>
-                ) : null}
-              </article>
-            );
-          })}
+                  </>
+                )}
+              </>
+            )}
+          </div>
         </div>
       )}
     </section>

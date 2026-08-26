@@ -1,7 +1,7 @@
 import { observer, useService } from '@rabjs/react';
-import { Bookmark, History, KeyRound, Monitor, Moon, Settings, Sun } from 'lucide-react';
+import { Bookmark, History, KeyRound, ListTodo, Monitor, Moon, Settings, Sun, Waypoints, Wrench } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { NavLink, useNavigate } from 'react-router';
+import { Link, NavLink, useNavigate } from 'react-router';
 import { ROUTES } from '@/routes';
 import { AuthService } from '@/services/auth.service';
 import { ThemeService } from '@/services/theme.service';
@@ -14,11 +14,12 @@ export const Layout = observer(function Layout({ children }: { children: ReactNo
   return (
     <div className="shell">
       <aside className="rail">
-        <div className="brand">
+        <Link to={ROUTES.home} className="brand">
           <p className="brand-mark">召回</p>
           <p className="brand-sub">AGENT RECALL</p>
-        </div>
+        </Link>
         <nav className="rail-nav">
+          <p className="rail-group">记录</p>
           <NavLink to={ROUTES.memories}>
             <Bookmark size={16} strokeWidth={1.6} />
             记忆
@@ -27,6 +28,20 @@ export const Layout = observer(function Layout({ children }: { children: ReactNo
             <History size={16} strokeWidth={1.6} />
             会话
           </NavLink>
+          <NavLink to={ROUTES.state}>
+            <ListTodo size={16} strokeWidth={1.6} />
+            状态
+          </NavLink>
+          <p className="rail-group">洞察</p>
+          <NavLink to={ROUTES.graph}>
+            <Waypoints size={16} strokeWidth={1.6} />
+            关系
+          </NavLink>
+          <NavLink to={ROUTES.ops}>
+            <Wrench size={16} strokeWidth={1.6} />
+            治理
+          </NavLink>
+          <p className="rail-group">系统</p>
           <NavLink to={ROUTES.tokens}>
             <KeyRound size={16} strokeWidth={1.6} />
             令牌

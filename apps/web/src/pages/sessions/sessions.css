@@ -1,0 +1,144 @@
+/* ============ 会话页：主从布局 ============ */
+.md-split {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+.sess-list {
+  position: sticky;
+  top: 24px;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 48px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.sess-list-head {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+}
+.sess-list-head input {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+  padding: 7px 11px;
+  font-size: 13px;
+}
+.sess-list-head input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.sess-scroll { overflow-y: auto; }
+.sess-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  border-left: 3px solid transparent;
+  background: none;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+  transition: background-color .12s ease;
+}
+.sess-item:last-child { border-bottom: none; }
+.sess-item:hover { background: var(--surface-2); }
+.sess-item.active { background: var(--accent-soft); border-left-color: var(--accent); }
+.sess-item .sid {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--ink);
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sess-item .meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 5px;
+  font-size: 12px;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.sess-item .meta .proj {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 120px;
+}
+.sess-detail { min-width: 0; }
+.sess-detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.sess-detail-head .sid { font-family: var(--font-mono); font-size: 15px; word-break: break-all; }
+.sess-detail-head .meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+.sess-summary-strip {
+  display: flex;
+  gap: 26px;
+  flex-wrap: wrap;
+  padding: 12px 18px;
+  margin-bottom: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.sess-summary-strip .num {
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+}
+.sess-summary-strip .label { font-size: 12px; color: var(--ink-3); }
+
+/* 会话时间线 */
+.tl { display: flex; flex-direction: column; }
+.tl-item {
+  position: relative;
+  padding: 4px 0 14px 20px;
+  border-left: 2px solid var(--line);
+}
+.tl-item::before {
+  content: "";
+  position: absolute;
+  left: -5px;
+  top: 12px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tab-web);
+}
+.tl-item.origin-agent::before { background: var(--tab-agent); }
+.tl-item.origin-hook::before { background: var(--tab-hook); }
+.tl-item.origin-import::before { background: var(--tab-import); }
+.tl-item.origin-summary::before { background: var(--tab-summary); }
+.tl-item:last-child { padding-bottom: 4px; }
+.tl-item.origin-hook { opacity: .82; }
+.tl-item.origin-hook:hover { opacity: 1; }
+.tl-item.origin-summary {
+  background: var(--tab-summary-soft);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding: 10px 14px 14px 20px;
+  margin-bottom: 6px;
+}
+.tl-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+
+@media (max-width: 1100px) {
+  .md-split { grid-template-columns: 1fr; }
+  .sess-list { position: static; max-height: 320px; }
+}

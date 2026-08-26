@@ -8,12 +8,15 @@ import { useEffect, useReducer, useRef, useState } from 'react';
 import { Markdown } from 'tiptap-markdown';
 import { fromDateInputValue, toDateInputValue } from '@/utils/format';
 import { TYPE_LABEL } from '@/utils/labels';
+import './editor.css';
 
 /** 提交时随内容一起带回的元数据；expiresAt 为 null 表示清除 */
 export type MemoryEditorMeta = {
   type?: MemoryType;
   tags?: string[];
   expiresAt?: string | null;
+  project?: string;
+  sessionId?: string;
 };
 
 type MemoryEditorProps = {
@@ -24,6 +27,8 @@ type MemoryEditorProps = {
   initialType?: MemoryType | null;
   initialTags?: string[];
   initialExpiresAt?: string | null;
+  /** 仅新建时收集项目和会话，编辑接口不改这两项 */
+  allowPlacement?: boolean;
   onSubmit: (markdown: string, meta: MemoryEditorMeta) => void;
   onCancel: () => void;
 };
@@ -40,6 +45,7 @@ export function MemoryEditor({
   initialType,
   initialTags,
   initialExpiresAt,
+  allowPlacement,
   onSubmit,
   onCancel,
 }: MemoryEditorProps) {
@@ -48,6 +54,8 @@ export function MemoryEditor({
   const [type, setType] = useState<MemoryType | ''>(initialType ?? '');
   const [tagsText, setTagsText] = useState((initialTags ?? []).join(', '));
   const [expiresAt, setExpiresAt] = useState(toDateInputValue(initialExpiresAt));
+  const [project, setProject] = useState('');
+  const [sessionId, setSessionId] = useState('');
 
   const editor = useEditor({
     extensions: [
@@ -80,6 +88,8 @@ export function MemoryEditor({
       type: type || undefined,
       tags,
       expiresAt: expiresAt ? fromDateInputValue(expiresAt) : null,
+      project: allowPlacement ? project.trim() || undefined : undefined,
+      sessionId: allowPlacement ? sessionId.trim() || undefined : undefined,
     });
   };
   submitRef.current = submit;
@@ -167,6 +177,23 @@ export function MemoryEditor({
             placeholder="例如：前端, 性能"
           />
         </label>
+        {allowPlacement ? (
+          <>
+            <label className="meta-field">
+              <span>项目</span>
+              <input className="field" value={project} onChange={(event) => setProject(event.target.value)} placeholder="可选" />
+            </label>
+            <label className="meta-field">
+              <span>会话 ID</span>
+              <input
+                className="field"
+                value={sessionId}
+                onChange={(event) => setSessionId(event.target.value)}
+                placeholder="填上后会出现在会话页"
+              />
+            </label>
+          </>
+        ) : null}
         <label className="meta-field">
           <span>过期时间</span>
           <input

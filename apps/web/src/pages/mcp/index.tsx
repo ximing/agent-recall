@@ -3,6 +3,7 @@ import { TriangleAlert } from 'lucide-react';
 import { useEffect } from 'react';
 import { formatTime } from '@/utils/format';
 import { McpService } from './mcp.service';
+import '@/styles/ledger.css';
 
 const McpPage = observer(function McpPage() {
   const service = useService(McpService);
@@ -12,29 +13,13 @@ const McpPage = observer(function McpPage() {
   }, [service]);
 
   return (
-    <section className="page">
+    <section className="page narrow">
       <header className="page-head">
-        <h1>MCP 客户端</h1>
-        <p className="desc">注册一个客户端，把服务地址和令牌写进本地配置，代理即可读写记忆。</p>
+        <div>
+          <h1>MCP 客户端</h1>
+          <p className="desc">注册一个客户端，把服务地址和令牌写进本地配置，代理即可读写记忆。</p>
+        </div>
       </header>
-
-      <form
-        className="panel create-row"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void service.create();
-        }}
-      >
-        <input
-          className="field"
-          placeholder="客户端名称，例如：Claude Desktop"
-          value={service.name}
-          onChange={(event) => service.setName(event.target.value)}
-        />
-        <button type="submit" className="btn primary">
-          注册客户端
-        </button>
-      </form>
 
       {service.freshConfig ? (
         <aside className="secret-banner">
@@ -66,58 +51,84 @@ const McpPage = observer(function McpPage() {
         </p>
       ) : null}
 
-      {service.clients.length === 0 ? (
-        <div className="empty">
-          <p className="empty-title">还没有 MCP 客户端</p>
-          <p>注册一个客户端，让 Claude Code、Claude Desktop 等代理连上召回。</p>
+      <div className="panel ledger-card">
+        <div className="panel-head">
+          <div>
+            <h2>已注册客户端</h2>
+            <p className="sub">吊销后对应令牌立即失效。</p>
+          </div>
         </div>
-      ) : (
-        <div className="panel ledger">
-          <table>
-            <thead>
-              <tr>
-                <th>客户端</th>
-                <th>令牌预览</th>
-                <th>状态</th>
-                <th>注册时间</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {service.clients.map((client) => (
-                <tr key={client.id} className={client.revokedAt ? 'revoked' : ''}>
-                  <td className="name">{client.name}</td>
-                  <td className="mono">{client.tokenPreview}</td>
-                  <td>
-                    {client.revokedAt ? (
-                      <span className="status revoked">已吊销</span>
-                    ) : (
-                      <span className="status ok">有效</span>
-                    )}
-                  </td>
-                  <td className="time">{formatTime(client.createdAt)}</td>
-                  <td>
-                    {client.revokedAt ? null : service.pendingRevokeId === client.id ? (
-                      <span className="revoke-confirm">
-                        <button type="button" className="btn danger" onClick={() => void service.confirmRevoke()}>
-                          确认吊销
-                        </button>
-                        <button type="button" className="btn" onClick={() => service.cancelRevoke()}>
-                          取消
-                        </button>
-                      </span>
-                    ) : (
-                      <button type="button" className="btn ghost warn" onClick={() => service.askRevoke(client.id)}>
-                        吊销客户端
-                      </button>
-                    )}
-                  </td>
+        <form
+          className="create-line"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void service.create();
+          }}
+        >
+          <input
+            className="field"
+            placeholder="客户端名称，例如：Claude Desktop"
+            value={service.name}
+            onChange={(event) => service.setName(event.target.value)}
+          />
+          <button type="submit" className="btn primary">
+            注册客户端
+          </button>
+        </form>
+
+        {service.clients.length === 0 ? (
+          <div className="empty">
+            <p className="empty-title">还没有 MCP 客户端</p>
+            <p>注册一个客户端，让 Claude Code、Claude Desktop 等代理连上召回。</p>
+          </div>
+        ) : (
+          <div className="ledger">
+            <table>
+              <thead>
+                <tr>
+                  <th>客户端</th>
+                  <th>令牌预览</th>
+                  <th>状态</th>
+                  <th>注册时间</th>
+                  <th />
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+              </thead>
+              <tbody>
+                {service.clients.map((client) => (
+                  <tr key={client.id} className={client.revokedAt ? 'revoked' : ''}>
+                    <td className="name">{client.name}</td>
+                    <td className="mono">{client.tokenPreview}</td>
+                    <td>
+                      {client.revokedAt ? (
+                        <span className="status revoked">已吊销</span>
+                      ) : (
+                        <span className="status ok">有效</span>
+                      )}
+                    </td>
+                    <td className="time">{formatTime(client.createdAt)}</td>
+                    <td className="cell-actions">
+                      {client.revokedAt ? null : service.pendingRevokeId === client.id ? (
+                        <span className="revoke-confirm">
+                          <button type="button" className="btn danger" onClick={() => void service.confirmRevoke()}>
+                            确认吊销
+                          </button>
+                          <button type="button" className="btn" onClick={() => service.cancelRevoke()}>
+                            取消
+                          </button>
+                        </span>
+                      ) : (
+                        <button type="button" className="btn ghost warn" onClick={() => service.askRevoke(client.id)}>
+                          吊销客户端
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </section>
   );
 });

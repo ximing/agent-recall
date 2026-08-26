@@ -1,0 +1,129 @@
+/* ============ 状态页 ============ */
+/* 左侧导航吸附、右侧内容滚动，两者之间不加框线 */
+.state-split {
+  display: grid;
+  grid-template-columns: 176px 1fr;
+  gap: 28px;
+  align-items: start;
+}
+.state-nav {
+  position: sticky;
+  top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.state-nav button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: none;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 13.5px;
+  text-align: left;
+  padding: 7px 12px;
+  border-radius: var(--radius-sm);
+  border-left: 2px solid transparent;
+  transition: background-color .12s ease, color .12s ease;
+}
+.state-nav button:hover { background: var(--surface-2); color: var(--ink); }
+.state-nav button.active {
+  color: var(--accent);
+  font-weight: 500;
+  border-left-color: var(--accent);
+  background: var(--accent-soft);
+}
+.state-nav button svg { flex: none; }
+.state-nav .nav-group {
+  font-size: 11px;
+  color: var(--ink-3);
+  letter-spacing: .12em;
+  padding: 12px 12px 4px;
+}
+.state-nav .nav-group:first-child { padding-top: 2px; }
+.state-content { min-width: 0; }
+
+/* 任务行（行动 / 哨兵 / 租约） */
+.task-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 22px;
+  border-bottom: 1px solid var(--line);
+  transition: background-color .12s ease;
+}
+.task-row:last-child { border-bottom: none; }
+.task-row:hover { background: var(--surface-2); }
+.task-row .grow { flex: 1; min-width: 0; }
+.task-row .title { font-weight: 500; }
+.task-row .detail { font-size: 12.5px; color: var(--ink-3); margin-top: 1px; }
+.status-pill {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 999px;
+  font-size: 12px;
+  padding: 3px 11px;
+  color: var(--ink-2);
+  cursor: pointer;
+  flex: none;
+}
+.status-pill.s-open { color: var(--accent); border-color: var(--accent-line); background: var(--accent-soft); }
+.status-pill.s-done { color: var(--ok); border-color: transparent; background: var(--ok-soft); }
+.status-pill.s-blocked { color: var(--danger); border-color: var(--danger-line); background: var(--danger-soft); }
+
+/* 简报分节 */
+.brief-section { padding: 18px 22px; border-bottom: 1px solid var(--line); }
+.brief-section:last-child { border-bottom: none; }
+.brief-section h3 {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-3);
+  letter-spacing: .1em;
+  margin-bottom: 10px;
+}
+.brief-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.brief-list li { display: flex; gap: 10px; align-items: baseline; font-size: 14px; }
+.brief-list .dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); align-self: center; }
+.brief-list .tail { margin-left: auto; flex: none; font-size: 12px; color: var(--ink-3); }
+.brief-section .md { color: var(--ink-2); }
+
+/* KV 定义行的键与值（.kv-row 本体在 global.css，治理页也复用） */
+.kv-key {
+  flex: none;
+  width: 190px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--ink);
+  word-break: break-all;
+  padding-top: 2px;
+}
+.kv-val {
+  flex: 1;
+  min-width: 220px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--ink-2);
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.6;
+  max-height: 160px;
+  overflow: auto;
+  margin: 0;
+}
+.kv-row .row-actions { display: flex; gap: 2px; align-items: center; flex: none; }
+.json-field {
+  min-width: 100%;
+  min-height: 64px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  resize: vertical;
+}
+
+@media (max-width: 900px) {
+  .state-split { grid-template-columns: 1fr; }
+  .state-nav { position: static; flex-direction: row; flex-wrap: wrap; }
+  .state-nav .nav-group { display: none; }
+  .kv-key { width: 100%; }
+}

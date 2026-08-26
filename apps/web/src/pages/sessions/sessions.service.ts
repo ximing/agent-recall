@@ -11,6 +11,8 @@ export class SessionsService extends Service {
   activeId: string | null = null;
   activeMemories: MemoryPublic[] = [];
   detailLoading = false;
+  crystallizing = false;
+  crystalMessage: string | null = null;
   private detailSeq = 0;
 
   async load(): Promise<void> {
@@ -26,15 +28,12 @@ export class SessionsService extends Service {
     }
   }
 
-  async toggle(sessionId: string): Promise<void> {
-    if (this.activeId === sessionId) {
-      this.activeId = null;
-      this.activeMemories = [];
-      this.detailSeq += 1;
-      return;
-    }
+  /** 选中一个会话并加载时间线；重复点同一个不收起（主从布局）。 */
+  async select(sessionId: string): Promise<void> {
+    if (this.activeId === sessionId && !this.detailLoading) return;
     this.activeId = sessionId;
     this.activeMemories = [];
+    this.crystalMessage = null;
     this.detailLoading = true;
     const seq = ++this.detailSeq;
     try {
@@ -46,6 +45,26 @@ export class SessionsService extends Service {
       this.error = errorMessage(err, '读取会话记忆失败');
     } finally {
       if (seq === this.detailSeq) this.detailLoading = false;
+    }
+  }
+
+  /** 把这场会话的钩子观察收成一条摘要。同一小时内重复调用不会再写一条。 */
+  async crystallize(sessionId: string): Promise<void> {
+    this.crystallizing = true;
+    this.crystalMessage = null;
+    this.error = null;
+    try {
+      await api.crystallizeSession(sessionId);
+      this.crystalMessage = '已写入本小时的会话摘要。';
+      await this.load();
+      if (this.activeId === sessionId) {
+        const timeline = await api.getSessionMemories(sessionId);
+        this.activeMemories = timeline.memories;
+      }
+    } catch (err) {
+      this.error = errorMessage(err, '结晶失败');
+    } finally {
+      this.crystallizing = false;
     }
   }
 }

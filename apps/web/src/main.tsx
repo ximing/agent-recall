@@ -5,7 +5,7 @@ import { BrowserRouter } from 'react-router';
 import { App } from '@/App';
 import { AuthService } from '@/services/auth.service';
 import { ThemeService } from '@/services/theme.service';
-import '@/styles.css';
+import '@/styles/global.css';
 
 register(AuthService);
 register(ThemeService);

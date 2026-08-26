@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { diffLines } from '@/utils/format';
+import './diff.css';
 
 /**
  * 行级 diff 视图：新增行绿色、删除行红色、未变行弱化。

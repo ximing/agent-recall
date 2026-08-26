@@ -1,17 +1,32 @@
 import type {
+  AuditEntryPublic,
   BatchForgetInput,
+  ConsolidateResult,
+  DiagnoseResult,
   ExportResult,
+  GraphQueryResult,
+  HealResult,
+  HookContextInput,
+  HookContextResult,
   ImportInput,
+  ImportStrategy,
+  KvEntryPublic,
+  KvPutInput,
   McpClientPublic,
   MemoryCreateInput,
   MemoryListQuery,
   MemoryPublic,
   MemoryStats,
   MemoryUpdateInput,
+  MeshSyncInput,
+  MeshSyncResult,
+  RecallInput,
   RecallLogPublic,
+  ReflectInput,
   SessionSummaryPublic,
   SettingsPublic,
   SettingsUpdateInput,
+  SnapshotPublic,
   TokenPublic,
   UserPublic,
 } from '@agent-recall/dto';
@@ -30,7 +45,7 @@ export class ApiError extends Error {
 
 type ErrorBody = { error?: { code?: string; message?: string } };
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+async function requestRaw(path: string, init: RequestInit = {}): Promise<{ status: number; data: unknown }> {
   const headers = new Headers(init.headers);
   if (init.body !== undefined && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
   let response: Response;
@@ -39,14 +54,25 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   } catch (err) {
     throw new ApiError(0, 'NETWORK', err instanceof Error ? err.message : '网络错误');
   }
-  if (response.status === 204) return undefined as T;
+  if (response.status === 204) return { status: 204, data: undefined };
   const text = await response.text();
   const data = text ? (JSON.parse(text) as unknown) : undefined;
-  if (!response.ok) {
+  return { status: response.status, data };
+}
+
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const { status, data } = await requestRaw(path, init);
+  if (status === 204) return undefined as T;
+  if (status < 200 || status >= 300) {
     const body = data as ErrorBody;
-    throw new ApiError(response.status, body.error?.code ?? 'ERROR', body.error?.message ?? '请求失败');
+    throw new ApiError(status, body.error?.code ?? 'ERROR', body.error?.message ?? '请求失败');
   }
   return data as T;
+}
+
+function kvPath(namespace: string, key?: string): string {
+  const base = `/api/kv/${encodeURIComponent(namespace)}`;
+  return key === undefined ? base : `${base}/${encodeURIComponent(key)}`;
 }
 
 /** 记忆列表查询参数：数组逗号分隔，空值省略 */
@@ -81,10 +107,38 @@ export const api = {
   me: () => request<{ user: UserPublic }>('/api/auth/me'),
   listMemories: (query?: MemoryListQuery) =>
     request<{ memories: MemoryPublic[] }>(`/api/memories${memoryQueryString(query)}`),
-  recallMemories: (query: string, limit = 50) =>
+  recallMemories: (input: RecallInput) =>
     request<{ memories: MemoryPublic[] }>('/api/memories/recall', {
       method: 'POST',
-      body: JSON.stringify({ query, limit }),
+      body: JSON.stringify(input),
+    }),
+  smartSearch: (input: RecallInput) =>
+    request<{ memories: MemoryPublic[]; scores: number[]; strategy: string }>('/api/memories/smart-search', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+  previewContext: (input: HookContextInput) =>
+    request<HookContextResult>('/api/memories/context', { method: 'POST', body: JSON.stringify(input) }),
+  shareMemory: (id: string, email: string) =>
+    request<{ shared: true }>(`/api/memories/${id}/share`, {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
+  sharedFeed: () => request<{ memories: MemoryPublic[] }>('/api/memories/shared-feed'),
+  memoryRelations: (id: string) => request<{ related: MemoryPublic[] }>(`/api/memories/${id}/relations`),
+  consolidate: (dryRun?: boolean) =>
+    request<ConsolidateResult>('/api/memories/consolidate', {
+      method: 'POST',
+      body: JSON.stringify({ dryRun }),
+    }),
+  reflect: (input: ReflectInput) =>
+    request<{ memory: MemoryPublic; deduped: boolean }>('/api/memories/reflect', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+  crystallizeSession: (sessionId: string) =>
+    request<{ memory: MemoryPublic }>(`/api/sessions/${encodeURIComponent(sessionId)}/crystallize`, {
+      method: 'POST',
     }),
   createMemory: (input: MemoryCreateInput) =>
     request<{ memory: MemoryPublic }>('/api/memories', { method: 'POST', body: JSON.stringify(input) }),
@@ -134,6 +188,54 @@ export const api = {
   updateSettings: (input: SettingsUpdateInput) =>
     request<{ settings: SettingsPublic }>('/api/settings', { method: 'PUT', body: JSON.stringify(input) }),
   listRecallLogs: () => request<{ logs: RecallLogPublic[] }>('/api/memories/recall-logs'),
+  graphQuery: (q?: string, limit?: number) => {
+    const params = new URLSearchParams();
+    if (q) params.set('q', q);
+    if (limit !== undefined) params.set('limit', String(limit));
+    const qs = params.toString();
+    return request<GraphQueryResult>(`/api/graph/query${qs ? `?${qs}` : ''}`);
+  },
+  listKv: (namespace: string, limit?: number) =>
+    request<{ entries: KvEntryPublic[] }>(`${kvPath(namespace)}${limit !== undefined ? `?limit=${String(limit)}` : ''}`),
+  getKv: (namespace: string, key: string) => request<{ entry: KvEntryPublic }>(kvPath(namespace, key)),
+  putKv: (namespace: string, key: string, input: KvPutInput) =>
+    request<{ entry: KvEntryPublic }>(kvPath(namespace, key), { method: 'PUT', body: JSON.stringify(input) }),
+  deleteKv: (namespace: string, key: string) => request<void>(kvPath(namespace, key), { method: 'DELETE' }),
+  appendKv: (namespace: string, key: string, value: unknown) =>
+    request<{ entry: KvEntryPublic }>(`${kvPath(namespace, key)}/append`, {
+      method: 'POST',
+      body: JSON.stringify({ value }),
+    }),
+  /** 租约：409 表示已被持有，返回当前条目而不是抛错 */
+  acquireLease: async (name: string, holder: string, ttlSeconds: number) => {
+    const { status, data } = await requestRaw(kvPath('leases', name), {
+      method: 'PUT',
+      body: JSON.stringify({ value: { holder }, ttlSeconds, ifAbsent: true }),
+    });
+    const body = data as { entry?: KvEntryPublic; error?: { code?: string; message?: string } };
+    if (status === 409 && body.entry) return { acquired: false as const, entry: body.entry };
+    if (status < 200 || status >= 300) {
+      throw new ApiError(status, body.error?.code ?? 'ERROR', body.error?.message ?? '获取租约失败');
+    }
+    if (!body.entry) throw new ApiError(status, 'ERROR', '获取租约失败');
+    return { acquired: true as const, entry: body.entry };
+  },
+  listSnapshots: () => request<{ snapshots: SnapshotPublic[] }>('/api/snapshots'),
+  createSnapshot: (note?: string) =>
+    request<{ snapshot: SnapshotPublic }>('/api/snapshots', {
+      method: 'POST',
+      body: JSON.stringify({ note }),
+    }),
+  restoreSnapshot: (id: string, strategy?: ImportStrategy) =>
+    request<{ imported: number; skipped: number; replaced: number }>(`/api/snapshots/${id}/restore`, {
+      method: 'POST',
+      body: JSON.stringify({ strategy }),
+    }),
+  meshSync: (input: MeshSyncInput) =>
+    request<MeshSyncResult>('/api/mesh/sync', { method: 'POST', body: JSON.stringify(input) }),
+  diagnose: () => request<DiagnoseResult>('/api/admin/diagnose'),
+  heal: () => request<HealResult>('/api/admin/heal', { method: 'POST' }),
+  listAudit: (limit = 100) => request<{ entries: AuditEntryPublic[] }>(`/api/audit?limit=${String(limit)}`),
 };
 
 export function errorMessage(err: unknown, fallback: string): string {

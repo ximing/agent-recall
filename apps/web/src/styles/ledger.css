@@ -1,0 +1,73 @@
+/* ============ 台账表 + 密钥横幅（令牌 / MCP，也被审计、召回历史复用） ============ */
+.ledger-card { overflow: hidden; }
+.ledger-card .empty { margin: 20px 22px; }
+.ledger { overflow: hidden; overflow-x: auto; }
+.ledger table { width: 100%; border-collapse: collapse; min-width: 560px; }
+.ledger th {
+  text-align: left;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-3);
+  padding: 10px 22px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+  transition: background-color .35s ease;
+}
+.ledger td {
+  padding: 13px 22px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+  font-size: 14px;
+}
+.ledger tr:last-child td { border-bottom: none; }
+.ledger tbody tr { transition: background-color .12s ease; }
+.ledger tbody tr:hover { background: var(--surface-2); }
+.ledger .name { font-weight: 500; }
+.ledger .mono { font-family: var(--font-mono); font-size: 12.5px; color: var(--ink-2); }
+.ledger .time { font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ledger tr.revoked .name, .ledger tr.revoked .mono {
+  color: var(--ink-3);
+  text-decoration: line-through;
+  text-decoration-color: var(--line-strong);
+}
+.ledger .cell-actions { text-align: right; }
+
+/* 密钥横幅 */
+.secret-banner {
+  border: 1px solid var(--gold-line);
+  background: var(--gold-bg);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  margin-bottom: 24px;
+  transition: background-color .35s ease, border-color .35s ease;
+}
+.secret-banner .sb-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--gold-ink);
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+.secret-banner .sb-value {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  background: var(--surface);
+  border: 1px solid var(--gold-line);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  word-break: break-all;
+  user-select: all;
+}
+.secret-banner pre.sb-value { white-space: pre-wrap; line-height: 1.6; margin: 0; }
+.secret-banner .sb-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.secret-banner .sb-note { font-size: 12px; color: var(--gold-ink); opacity: .8; }
+.secret-banner .sb-base { font-size: 13px; color: var(--gold-ink); margin-bottom: 8px; }
+.secret-banner .sb-base code { font-family: var(--font-mono); }

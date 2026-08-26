@@ -1,0 +1,23 @@
+/* ============ 行级 diff（DiffView） ============ */
+.diff {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.7;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--surface);
+}
+.diff-line {
+  padding: 1px 10px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  display: flex;
+  gap: 8px;
+}
+.diff-line .diff-sign { flex: none; width: 10px; color: var(--ink-3); user-select: none; }
+.diff-line.same { color: var(--ink-3); }
+.diff-line.add { background: color-mix(in srgb, var(--ok) 12%, transparent); color: var(--ok); }
+.diff-line.add .diff-sign { color: var(--ok); }
+.diff-line.del { background: var(--danger-soft); color: var(--danger); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--danger) 45%, transparent); }
+.diff-line.del .diff-sign { color: var(--danger); }
