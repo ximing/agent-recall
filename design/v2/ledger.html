@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>令牌 / MCP · 召回控制台 v2</title>
+<link rel="stylesheet" href="console.css">
+<style>
+  /* 台账表 */
+  .ledger-card { overflow: hidden; margin-bottom: 28px; }
+  .ledger-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 18px 22px 14px;
+  }
+  .ledger-head h2 {
+    font-family: var(--font-display);
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: .05em;
+  }
+  .ledger-head .sub { font-size: 12.5px; color: var(--ink-3); margin-top: 3px; max-width: 60ch; }
+  .create-line {
+    display: flex;
+    gap: 8px;
+    padding: 13px 22px;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    background: var(--surface-2);
+  }
+  .create-line .field { max-width: 320px; padding: 7px 11px; font-size: 13px; }
+  .ledger-card table { width: 100%; border-collapse: collapse; }
+  .ledger-card th {
+    text-align: left;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ink-3);
+    padding: 10px 22px;
+    border-bottom: 1px solid var(--line);
+  }
+  .ledger-card td {
+    padding: 13px 22px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: middle;
+    font-size: 14px;
+  }
+  .ledger-card tr:last-child td { border-bottom: none; }
+  .ledger-card tbody tr { transition: background-color .12s ease; }
+  .ledger-card tbody tr:hover { background: var(--surface-2); }
+  .ledger-card .name { font-weight: 500; }
+  .ledger-card .mono { font-family: var(--font-mono); font-size: 12.5px; color: var(--ink-2); }
+  .ledger-card .time { font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr.revoked .name, tr.revoked .mono {
+    color: var(--ink-3);
+    text-decoration: line-through;
+    text-decoration-color: var(--line-strong);
+  }
+
+  /* 密钥横幅 */
+  .secret-banner {
+    border: 1px solid var(--gold-line);
+    background: var(--gold-bg);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    margin-bottom: 24px;
+  }
+  .secret-banner .sb-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--gold-ink);
+    font-weight: 600;
+    font-size: 13px;
+    margin-bottom: 10px;
+  }
+  .secret-banner .sb-value {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    background: var(--surface);
+    border: 1px solid var(--gold-line);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    word-break: break-all;
+    user-select: all;
+  }
+  .secret-banner .sb-foot {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 12px;
+  }
+  .secret-banner .sb-note { font-size: 12px; color: var(--gold-ink); opacity: .8; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="rail">
+    <a class="brand" href="index.html">
+      <p class="brand-mark">召回</p>
+      <p class="brand-sub">AGENT RECALL</p>
+    </a>
+    <nav class="rail-nav">
+      <p class="rail-group">记录</p>
+      <a href="index.html">说明</a>
+      <a href="memories.html">记忆<span class="count">1,284</span></a>
+      <a href="sessions.html">会话<span class="count">96</span></a>
+      <a href="state.html">状态</a>
+      <p class="rail-group">洞察</p>
+      <a href="graph.html">关系</a>
+      <a href="ops.html">治理</a>
+      <p class="rail-group">系统</p>
+      <a href="ledger.html" class="active">令牌</a>
+      <a href="ledger.html#mcp">MCP 客户端</a>
+      <a href="settings.html">设置</a>
+    </nav>
+    <div class="rail-foot">
+      <div class="theme-toggle" role="group" aria-label="主题">
+        <button type="button" class="active" onclick="setTheme('light')">明亮</button>
+        <button type="button" onclick="setTheme('dark')">暗色</button>
+      </div>
+      <div class="rail-user">
+        <span class="avatar">X</span>
+        <span class="email">ximing@example.com</span>
+        <button type="button" class="logout">退出</button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="stage">
+    <section class="page narrow">
+      <header class="page-head">
+        <div>
+          <h1>令牌</h1>
+          <p class="desc">钩子、MCP 客户端和脚本都拿令牌访问服务。吊销立即生效，已发出的令牌无法找回。</p>
+        </div>
+      </header>
+
+      <!-- 新密钥横幅（仅创建时出现一次） -->
+      <div class="secret-banner">
+        <p class="sb-title">⚠ 新令牌只显示这一次，请立即保存</p>
+        <p class="sb-value">arc_tok_9f2c4e1a8b3d77b0e4a19c6fc2d8b5e3</p>
+        <div class="sb-foot">
+          <button type="button" class="btn">复制</button>
+          <span class="sb-note">关闭本横幅后将无法再次查看</span>
+        </div>
+      </div>
+
+      <div class="panel ledger-card">
+        <div class="ledger-head">
+          <div>
+            <h2>访问令牌</h2>
+            <p class="sub">按用途命名，吊销立即生效。</p>
+          </div>
+        </div>
+        <div class="create-line">
+          <input class="field" placeholder="令牌名称，如：mac-mini 钩子">
+          <button type="button" class="btn primary">创建令牌</button>
+        </div>
+        <table>
+          <thead>
+            <tr><th>名称</th><th>令牌</th><th>状态</th><th>最近使用</th><th></th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="name">mac-mini 钩子</td>
+              <td class="mono">arc_tok_9f2c…b5e3</td>
+              <td><span class="status ok">生效中</span></td>
+              <td class="time">10-07 18:42</td>
+              <td style="text-align:right;"><button type="button" class="btn ghost warn">吊销</button></td>
+            </tr>
+            <tr>
+              <td class="name">Claude Code MCP</td>
+              <td class="mono">arc_tok_3a91…041a</td>
+              <td><span class="status ok">生效中</span></td>
+              <td class="time">10-07 17:55</td>
+              <td style="text-align:right;"><button type="button" class="btn ghost warn">吊销</button></td>
+            </tr>
+            <tr class="revoked">
+              <td class="name">旧笔记本</td>
+              <td class="mono">arc_tok_77b0…027c</td>
+              <td><span class="status muted">已吊销</span></td>
+              <td class="time">09-18 11:02</td>
+              <td></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="panel ledger-card" id="mcp">
+        <div class="ledger-head">
+          <div>
+            <h2>MCP 客户端</h2>
+            <p class="sub">登记允许连到 MCP 服务的客户端，按工具面 profile 控制可见工具。</p>
+          </div>
+        </div>
+        <div class="create-line">
+          <input class="field" placeholder="客户端名称，如：Claude Code">
+          <select class="field" style="max-width:180px;appearance:none;">
+            <option>profile：完整</option>
+            <option>profile：精简</option>
+            <option>profile：只读</option>
+          </select>
+          <button type="button" class="btn primary">登记客户端</button>
+        </div>
+        <table>
+          <thead>
+            <tr><th>名称</th><th>工具面</th><th>状态</th><th>最近连接</th><th></th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="name">Claude Code</td>
+              <td><span class="mini-tag mono">full · 23 工具</span></td>
+              <td><span class="status ok">在线</span></td>
+              <td class="time">10-07 18:40</td>
+              <td style="text-align:right;"><button type="button" class="btn ghost warn">移除</button></td>
+            </tr>
+            <tr>
+              <td class="name">Cursor</td>
+              <td><span class="mini-tag mono">slim · 9 工具</span></td>
+              <td><span class="status muted">离线</span></td>
+              <td class="time">10-05 21:14</td>
+              <td style="text-align:right;"><button type="button" class="btn ghost warn">移除</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+<script>
+  function setTheme(t) {
+    document.documentElement.dataset.theme = t;
+    document.querySelectorAll('.theme-toggle button').forEach(b =>
+      b.classList.toggle('active', b.textContent.trim() === (t === 'light' ? '明亮' : '暗色')));
+  }
+</script>
+</body>
+</html>

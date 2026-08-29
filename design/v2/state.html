@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>状态 · 召回控制台 v2</title>
+<link rel="stylesheet" href="console.css">
+<style>
+  /* ---- 导航与内容在同一个面板里，竖线分隔 ---- */
+  .state-split {
+    display: grid;
+    grid-template-columns: 176px 1fr;
+    gap: 28px;
+    align-items: start;
+  }
+  .state-nav {
+    position: sticky;
+    top: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .state-nav button {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    border: none;
+    background: transparent;
+    color: var(--ink-2);
+    font-size: 13.5px;
+    text-align: left;
+    padding: 7px 12px;
+    border-radius: var(--radius-sm);
+    border-left: 2px solid transparent;
+    transition: background-color .12s ease, color .12s ease;
+  }
+  .state-nav button:hover { background: var(--surface-2); color: var(--ink); }
+  .state-nav button.active {
+    color: var(--accent);
+    font-weight: 500;
+    border-left-color: var(--accent);
+    background: var(--accent-soft);
+  }
+  .state-nav .nav-group {
+    font-size: 11px;
+    color: var(--ink-3);
+    letter-spacing: .12em;
+    padding: 12px 12px 4px;
+  }
+  .state-nav .nav-group:first-child { padding-top: 2px; }
+  .state-content { min-width: 0; }
+
+  /* ---- 面板通用 ---- */
+  .panel-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 18px 22px 0;
+  }
+  .panel-head h2 {
+    font-family: var(--font-display);
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: .05em;
+  }
+  .panel-head .sub { font-size: 12.5px; color: var(--ink-3); margin-top: 3px; max-width: 60ch; }
+
+  /* 新建行 */
+  .create-line {
+    display: flex;
+    gap: 8px;
+    padding: 13px 22px;
+    margin-top: 14px;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    background: var(--surface-2);
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .create-line .field { flex: 1; min-width: 140px; padding: 7px 11px; font-size: 13px; }
+  .create-line .btn { flex: none; }
+
+  /* 任务行（行动 / 哨兵） */
+  .task-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 22px;
+    border-bottom: 1px solid var(--line);
+    transition: background-color .12s ease;
+  }
+  .task-row:last-child { border-bottom: none; }
+  .task-row:hover { background: var(--surface-2); }
+  .task-row .grow { flex: 1; min-width: 0; }
+  .task-row .title { font-weight: 500; }
+  .task-row .detail { font-size: 12.5px; color: var(--ink-3); margin-top: 1px; }
+  .status-pill {
+    appearance: none;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    border-radius: 999px;
+    font-size: 12px;
+    padding: 3px 11px;
+    color: var(--ink-2);
+    cursor: pointer;
+    flex: none;
+  }
+  .status-pill.s-open { color: var(--accent); border-color: var(--accent-line); background: var(--accent-soft); }
+  .status-pill.s-done { color: var(--ok); border-color: transparent; background: var(--ok-soft); }
+  .status-pill.s-blocked { color: var(--danger); border-color: var(--danger-line); background: var(--danger-soft); }
+
+  /* 简报分节 */
+  .brief-section { padding: 18px 22px; border-bottom: 1px solid var(--line); }
+  .brief-section:last-child { border-bottom: none; }
+  .brief-section h3 {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ink-3);
+    letter-spacing: .1em;
+    margin-bottom: 10px;
+  }
+  .brief-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+  .brief-list li { display: flex; gap: 10px; align-items: baseline; font-size: 14px; }
+  .brief-list .dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); align-self: center; }
+  .brief-list .tail, .brief-list .hint { margin-left: auto; flex: none; font-size: 12px; color: var(--ink-3); }
+
+  /* KV 定义行 */
+  .kv-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 12px 22px;
+    border-bottom: 1px solid var(--line);
+    flex-wrap: wrap;
+  }
+  .kv-row:last-child { border-bottom: none; }
+  .kv-row:hover { background: var(--surface-2); }
+  .kv-key {
+    flex: none;
+    width: 190px;
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    color: var(--ink);
+    word-break: break-all;
+    padding-top: 2px;
+  }
+  .kv-val {
+    flex: 1;
+    min-width: 220px;
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    color: var(--ink-2);
+    white-space: pre-wrap;
+    word-break: break-word;
+    line-height: 1.6;
+    max-height: 160px;
+    overflow: auto;
+    margin: 0;
+  }
+  .kv-row .row-actions { display: flex; gap: 2px; align-items: center; flex: none; }
+  .json-field {
+    min-width: 100%;
+    min-height: 64px;
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+  }
+
+  [data-tab-panel] { display: none; }
+  [data-tab-panel].show { display: block; animation: stage-in .3s ease both; }
+
+  @media (max-width: 900px) {
+    .state-split { grid-template-columns: 1fr; }
+    .state-nav { position: static; }
+    .state-nav { position: static; flex-direction: row; flex-wrap: wrap; }
+    .state-nav .nav-group { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="rail">
+    <a class="brand" href="index.html">
+      <p class="brand-mark">召回</p>
+      <p class="brand-sub">AGENT RECALL</p>
+    </a>
+    <nav class="rail-nav">
+      <p class="rail-group">记录</p>
+      <a href="index.html">说明</a>
+      <a href="memories.html">记忆<span class="count">1,284</span></a>
+      <a href="sessions.html">会话<span class="count">96</span></a>
+      <a href="state.html" class="active">状态</a>
+      <p class="rail-group">洞察</p>
+      <a href="graph.html">关系</a>
+      <a href="ops.html">治理</a>
+      <p class="rail-group">系统</p>
+      <a href="ledger.html">令牌</a>
+      <a href="ledger.html#mcp">MCP 客户端</a>
+      <a href="settings.html">设置</a>
+    </nav>
+    <div class="rail-foot">
+      <div class="theme-toggle" role="group" aria-label="主题">
+        <button type="button" class="active" onclick="setTheme('light')">明亮</button>
+        <button type="button" onclick="setTheme('dark')">暗色</button>
+      </div>
+      <div class="rail-user">
+        <span class="avatar">X</span>
+        <span class="email">ximing@example.com</span>
+        <button type="button" class="logout">退出</button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="stage">
+    <section class="page">
+      <header class="page-head">
+        <div>
+          <h1>状态</h1>
+          <p class="desc">行动、信号、哨兵、槽位等代理工作态，都存在同一张 KV 表里，按用途分组查看。</p>
+        </div>
+      </header>
+
+      <div class="state-split">
+        <!-- 竖向 tab -->
+        <nav class="state-nav" aria-label="状态分组">
+          <p class="nav-group">总览</p>
+          <button type="button" class="active" data-tab="brief">简报</button>
+          <p class="nav-group">工作项</p>
+          <button type="button" data-tab="actions">行动<span class="n">5</span></button>
+          <button type="button" data-tab="routines">例程<span class="n">3</span></button>
+          <button type="button" data-tab="checkpoints">检查点<span class="n">8</span></button>
+          <p class="nav-group">观察</p>
+          <button type="button" data-tab="signals">信号<span class="n">12</span></button>
+          <button type="button" data-tab="sentinels">哨兵<span class="n">2</span></button>
+          <p class="nav-group">数据</p>
+          <button type="button" data-tab="slots">槽位<span class="n">6</span></button>
+          <button type="button" data-tab="profile">档案</button>
+          <button type="button" data-tab="leases">租约<span class="n">1</span></button>
+        </nav>
+
+        <!-- 简报 -->
+        <div data-tab-panel="brief" class="show">
+          <div class="panel">
+            <div class="brief-section">
+              <h3>未完成的行动</h3>
+              <ul class="brief-list">
+                <li><span class="dot"></span>控制台 v2 布局定稿<span class="hint">等设计确认</span></li>
+                <li><span class="dot"></span>rerank 超时预算从 8s 收到 5s<span class="hint">进行中</span></li>
+                <li><span class="dot"></span>补 hooks 的安装文档</li>
+              </ul>
+            </div>
+            <div class="brief-section">
+              <h3>最近的会话</h3>
+              <ul class="brief-list">
+                <li>
+                  <span class="dot"></span>
+                  <span class="mono" style="font-size:13px;">sess_9f2c4e1a8b3d</span>
+                  <span class="hint">18 条 · 10-07 18:42</span>
+                </li>
+              </ul>
+            </div>
+            <div class="brief-section">
+              <h3>最近五条记忆</h3>
+              <ul class="brief-list">
+                <li><span class="dot"></span>精排默认走 rrf+rerank，rrf 只作对照<span class="hint">10-07</span></li>
+                <li><span class="dot"></span>rerank 候选上限 40，超时回退 RRF 顺序<span class="hint">10-07</span></li>
+                <li><span class="dot"></span>召回管线定为 BM25 + 向量双路<span class="hint">10-06</span></li>
+                <li><span class="dot"></span>工具面 profile 用来压宿主上下文成本<span class="hint">10-06</span></li>
+                <li><span class="dot"></span>记忆抽屉加版本历史与行级 diff<span class="hint">10-05</span></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- 行动 -->
+        <div data-tab-panel="actions">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>行动</h2>
+                <p class="sub">代理和自己都能往这里写待办；状态只有进行中、完成、受阻三种。</p>
+              </div>
+            </div>
+            <div class="create-line">
+              <input class="field" placeholder="行动标题">
+              <input class="field" placeholder="补充说明，可空">
+              <button type="button" class="btn primary">新建行动</button>
+            </div>
+            <div>
+              <div class="task-row">
+                <div class="grow">
+                  <p class="title">控制台 v2 布局定稿</p>
+                  <p class="detail">等设计稿确认后按页落地</p>
+                </div>
+                <select class="status-pill s-open" aria-label="行动状态">
+                  <option selected>进行中</option><option>完成</option><option>受阻</option>
+                </select>
+                <button type="button" class="btn ghost warn">删除</button>
+              </div>
+              <div class="task-row">
+                <div class="grow">
+                  <p class="title">rerank 超时预算从 8s 收到 5s</p>
+                  <p class="detail">scorecard 显示 P95 已经压在 4.2s</p>
+                </div>
+                <select class="status-pill s-open" aria-label="行动状态">
+                  <option selected>进行中</option><option>完成</option><option>受阻</option>
+                </select>
+                <button type="button" class="btn ghost warn">删除</button>
+              </div>
+              <div class="task-row">
+                <div class="grow">
+                  <p class="title">补 hooks 的安装文档</p>
+                </div>
+                <select class="status-pill s-blocked" aria-label="行动状态">
+                  <option>进行中</option><option>完成</option><option selected>受阻</option>
+                </select>
+                <button type="button" class="btn ghost warn">删除</button>
+              </div>
+              <div class="task-row">
+                <div class="grow">
+                  <p class="title" style="color:var(--ink-3);text-decoration:line-through;">eval scorecard 上线</p>
+                </div>
+                <select class="status-pill s-done" aria-label="行动状态">
+                  <option>进行中</option><option selected>完成</option><option>受阻</option>
+                </select>
+                <button type="button" class="btn ghost warn">删除</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 槽位 -->
+        <div data-tab-panel="slots">
+          <div class="panel">
+            <div class="panel-head">
+              <div>
+                <h2>槽位</h2>
+                <p class="sub">命名 JSON 插槽，代理启动时按名读取；「追加」把新值并进数组。</p>
+              </div>
+            </div>
+            <div class="create-line" style="flex-wrap:wrap;">
+              <input class="field" placeholder="槽位名" style="max-width:220px;">
+              <textarea class="field json-field" placeholder='JSON。追加时如果不是 JSON，会按字符串放进去。'></textarea>
+              <div style="display:flex;gap:8px;">
+                <button type="button" class="btn primary">写入</button>
+                <button type="button" class="btn">追加</button>
+              </div>
+            </div>
+            <div>
+              <div class="kv-row">
+                <span class="kv-key">current_focus</span>
+                <span class="kv-val">{ "project": "agent-recall", "topic": "console v2", "since": "2026-10-06" }</span>
+                <span class="row-actions">
+                  <button type="button" class="btn ghost">编辑</button>
+                  <button type="button" class="btn ghost warn">删除</button>
+                </span>
+              </div>
+              <div class="kv-row">
+                <span class="kv-key">open_questions</span>
+                <span class="kv-val">[ "rerank 预算要不要按查询复杂度自适应", "钩子碎片多久结晶一次合适" ]</span>
+                <span class="row-actions">
+                  <button type="button" class="btn ghost">编辑</button>
+                  <button type="button" class="btn ghost warn">删除</button>
+                </span>
+              </div>
+              <div class="kv-row">
+                <span class="kv-key">style_profile</span>
+                <span class="kv-val">{ "tone": "直接", "lang": "zh", "emoji": false }</span>
+                <span class="row-actions">
+                  <button type="button" class="btn ghost">编辑</button>
+                  <button type="button" class="btn ghost warn">删除</button>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 其余 tab：占位说明版式沿用 -->
+        <div data-tab-panel="signals">
+          <div class="empty">
+            <p class="empty-title">信号</p>
+            <p>版式同「槽位」：KV 定义行 + 顶部新建行。信号带过期时间，过期行置灰。</p>
+          </div>
+        </div>
+        <div data-tab-panel="sentinels">
+          <div class="empty">
+            <p class="empty-title">哨兵</p>
+            <p>版式同「行动」：任务行，状态列为 警戒 / 触发 两种药丸。</p>
+          </div>
+        </div>
+        <div data-tab-panel="profile">
+          <div class="empty">
+            <p class="empty-title">档案</p>
+            <p>单条长文面板：markdown 编辑 + 保存，版式同设置页分节。</p>
+          </div>
+        </div>
+        <div data-tab-panel="leases">
+          <div class="empty">
+            <p class="empty-title">租约</p>
+            <p>台账表版式（见令牌页）：持有者、资源、到期时间、状态。</p>
+          </div>
+        </div>
+        <div data-tab-panel="routines">
+          <div class="empty">
+            <p class="empty-title">例程</p>
+            <p>卡片列表：名称、cron 表达式、上次运行、启用开关。</p>
+          </div>
+        </div>
+        <div data-tab-panel="checkpoints">
+          <div class="empty">
+            <p class="empty-title">检查点</p>
+            <p>时间倒序列表：摘要 + 关联会话，支持回滚到任一检查点。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+<script>
+  function setTheme(t) {
+    document.documentElement.dataset.theme = t;
+    document.querySelectorAll('.theme-toggle button').forEach(b =>
+      b.classList.toggle('active', b.textContent.trim() === (t === 'light' ? '明亮' : '暗色')));
+  }
+  document.querySelectorAll('.state-nav button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.state-nav button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelectorAll('[data-tab-panel]').forEach(p =>
+        p.classList.toggle('show', p.dataset.tabPanel === btn.dataset.tab));
+    });
+  });
+</script>
+</body>
+</html>

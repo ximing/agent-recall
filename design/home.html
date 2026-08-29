@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>召回 agent-recall — 给 coding agent 的长期记忆</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --ink: #0A0C18;
+    --surface: #11142A;
+    --surface-2: #161A36;
+    --line: #232748;
+    --line-soft: #1B1F3C;
+    --violet: #7C6CFF;
+    --violet-soft: #A99CFF;
+    --violet-dim: #3A3470;
+    --amber: #F2B04E;
+    --amber-soft: #FFD08A;
+    --text: #E9EBF8;
+    --muted: #9298BC;
+    --faint: #5C6188;
+    --radius: 14px;
+    --font-display: "Space Grotesk", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--ink);
+    color: var(--text);
+    font-family: var(--font-display);
+    font-size: 16px;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  ::selection { background: var(--violet-dim); color: #fff; }
+
+  /* ---------- ambient background ---------- */
+  .glow-field {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .glow-field::before {
+    content: "";
+    position: absolute;
+    width: 900px; height: 900px;
+    top: -420px; right: -240px;
+    background: radial-gradient(circle, rgba(124,108,255,.14) 0%, transparent 62%);
+  }
+  .glow-field::after {
+    content: "";
+    position: absolute;
+    width: 700px; height: 700px;
+    top: 240px; left: -320px;
+    background: radial-gradient(circle, rgba(242,176,78,.07) 0%, transparent 60%);
+  }
+  .grid-veil {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(rgba(35,39,72,.35) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(35,39,72,.35) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: radial-gradient(ellipse 90% 60% at 60% 0%, #000 0%, transparent 70%);
+    -webkit-mask-image: radial-gradient(ellipse 90% 60% at 60% 0%, #000 0%, transparent 70%);
+  }
+
+  .wrap {
+    position: relative;
+    z-index: 1;
+    max-width: 1160px;
+    margin: 0 auto;
+    padding: 0 32px;
+  }
+
+  /* ---------- nav ---------- */
+  nav {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    background: rgba(10,12,24,.72);
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .nav-inner {
+    max-width: 1160px;
+    margin: 0 auto;
+    padding: 0 32px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    gap: 40px;
+  }
+  .brand { display: flex; align-items: baseline; gap: 10px; text-decoration: none; }
+  .brand-mark {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: .04em;
+  }
+  .brand-mark em {
+    font-style: normal;
+    color: var(--violet-soft);
+  }
+  .brand-sub {
+    font-size: 11px;
+    letter-spacing: .18em;
+    color: var(--faint);
+    font-weight: 500;
+  }
+  .nav-links { display: flex; gap: 28px; margin-left: auto; align-items: center; }
+  .nav-links a {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 14px;
+    transition: color .18s;
+  }
+  .nav-links a:hover { color: var(--text); }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 600;
+    padding: 9px 20px;
+    border-radius: 10px;
+    text-decoration: none;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: transform .18s, box-shadow .18s, background .18s, border-color .18s;
+  }
+  .btn.primary {
+    background: var(--violet);
+    color: #fff;
+    box-shadow: 0 0 0 1px rgba(169,156,255,.35), 0 8px 24px -8px rgba(124,108,255,.55);
+  }
+  .btn.primary:hover { background: #8B7DFF; transform: translateY(-1px); }
+  .btn.ghost {
+    color: var(--text);
+    border-color: var(--line);
+    background: rgba(17,20,42,.6);
+  }
+  .btn.ghost:hover { border-color: var(--violet-dim); background: var(--surface-2); }
+  .btn.small { padding: 7px 16px; font-size: 13px; }
+
+  /* ---------- hero ---------- */
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.06fr);
+    gap: 56px;
+    align-items: center;
+    padding: 96px 0 88px;
+  }
+  .hero-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 13px;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    background: rgba(17,20,42,.55);
+    padding: 6px 14px 6px 10px;
+    border-radius: 999px;
+    margin-bottom: 28px;
+  }
+  .hero-kicker .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--amber);
+    box-shadow: 0 0 10px rgba(242,176,78,.8);
+  }
+  .hero h1 {
+    font-size: clamp(40px, 5.2vw, 62px);
+    line-height: 1.14;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin-bottom: 24px;
+  }
+  .hero h1 .zh { display: block; }
+  .hero h1 .recalled {
+    background: linear-gradient(100deg, var(--amber-soft) 0%, var(--amber) 55%, #E8943A 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .hero-lede {
+    font-size: 17px;
+    color: var(--muted);
+    max-width: 34em;
+    margin-bottom: 36px;
+  }
+  .hero-lede strong { color: var(--text); font-weight: 600; }
+  .hero-ctas { display: flex; gap: 14px; align-items: center; margin-bottom: 44px; }
+  .hero-meta {
+    display: flex;
+    gap: 26px;
+    padding-top: 22px;
+    border-top: 1px solid var(--line-soft);
+  }
+  .hero-meta .m { font-size: 13px; color: var(--faint); }
+  .hero-meta .m b {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 17px;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 2px;
+  }
+
+  /* ---------- hero visual: the recall moment ---------- */
+  .recall-stage {
+    position: relative;
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    background:
+      radial-gradient(120% 100% at 85% 0%, rgba(124,108,255,.10) 0%, transparent 55%),
+      linear-gradient(180deg, var(--surface-2) 0%, var(--surface) 100%);
+    box-shadow:
+      0 0 0 1px rgba(124,108,255,.06),
+      0 40px 80px -40px rgba(0,0,0,.8),
+      inset 0 1px 0 rgba(233,235,248,.05);
+    overflow: hidden;
+  }
+  .recall-stage .stage-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--line-soft);
+    font-size: 12px;
+    color: var(--faint);
+  }
+  .stage-head .lights { display: flex; gap: 6px; margin-right: 6px; }
+  .stage-head .lights i {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--line);
+  }
+  .stage-head .lights i:first-child { background: #E5655F; }
+  .stage-head .lights i:nth-child(2) { background: var(--amber); }
+  .stage-head .lights i:nth-child(3) { background: #4EC98A; }
+  .stage-head code { font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); }
+
+  .recall-svg { display: block; width: 100%; height: auto; }
+
+  /* orchestrated load sequence */
+  @keyframes nodeIn { from { opacity: 0; transform: scale(.4); } to { opacity: 1; transform: scale(1); } }
+  @keyframes lineDraw { to { stroke-dashoffset: 0; } }
+  @keyframes chipIn { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: translateX(0); } }
+  @keyframes barFill { from { width: 0; } to { width: 102px; } }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes pulseDot { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
+
+  .mem-node { opacity: 0; transform-origin: center; transform-box: fill-box; animation: nodeIn .5s cubic-bezier(.2,.9,.3,1.4) both; }
+  .flow-line {
+    stroke-dasharray: 260;
+    stroke-dashoffset: 260;
+    animation: lineDraw 1.1s ease-out both;
+  }
+  .ctx-chip { opacity: 0; animation: chipIn .55s ease-out both; }
+  .budget-fill { animation: barFill 1.2s cubic-bezier(.3,.8,.3,1) both; }
+  .stage-foot { opacity: 0; animation: fadeUp .6s ease-out both; }
+  .pulse { animation: pulseDot 2.4s ease-in-out infinite; }
+
+  .stage-foot {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 18px;
+    border-top: 1px solid var(--line-soft);
+    font-size: 12px;
+    color: var(--faint);
+    animation-delay: 2.4s;
+  }
+  .stage-foot code { font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); }
+
+  /* ---------- sections ---------- */
+  section { padding: 96px 0; position: relative; }
+  .sec-head { max-width: 620px; margin-bottom: 56px; }
+  .sec-head h2 {
+    font-size: clamp(28px, 3.2vw, 38px);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+    margin-bottom: 14px;
+  }
+  .sec-head p { color: var(--muted); font-size: 16px; }
+  .sec-index {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--violet-soft);
+    display: block;
+    margin-bottom: 14px;
+    letter-spacing: .08em;
+  }
+
+  /* ---------- lanes: three surfaces ---------- */
+  .lanes {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--surface);
+  }
+  .lane {
+    padding: 34px 30px 30px;
+    position: relative;
+    transition: background .2s;
+  }
+  .lane + .lane { border-left: 1px solid var(--line-soft); }
+  .lane:hover { background: var(--surface-2); }
+  .lane .glyph {
+    width: 44px; height: 44px;
+    border-radius: 12px;
+    display: grid;
+    place-items: center;
+    margin-bottom: 22px;
+    border: 1px solid var(--line);
+  }
+  .lane:nth-child(1) .glyph { background: rgba(242,176,78,.1); color: var(--amber); border-color: rgba(242,176,78,.25); }
+  .lane:nth-child(2) .glyph { background: rgba(124,108,255,.12); color: var(--violet-soft); border-color: rgba(124,108,255,.3); }
+  .lane:nth-child(3) .glyph { background: rgba(78,201,138,.1); color: #6FD9A4; border-color: rgba(78,201,138,.25); }
+  .lane h3 { font-size: 19px; font-weight: 600; margin-bottom: 10px; }
+  .lane p { font-size: 14px; color: var(--muted); margin-bottom: 20px; min-height: 88px; }
+  .lane .carrier {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--faint);
+    border-top: 1px solid var(--line-soft);
+    padding-top: 14px;
+  }
+  .lane .carrier b { color: var(--muted); font-weight: 500; }
+
+  /* ---------- retrieval pipeline ---------- */
+  .pipeline-panel {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background:
+      radial-gradient(90% 120% at 50% -20%, rgba(124,108,255,.08) 0%, transparent 60%),
+      var(--surface);
+    padding: 48px 44px;
+    position: relative;
+    overflow: hidden;
+  }
+  .pipeline {
+    display: grid;
+    grid-template-columns: 1fr 56px 1fr 56px 1fr 56px 1.15fr;
+    grid-template-rows: 1fr 1fr;
+    row-gap: 16px;
+    align-items: stretch;
+  }
+  .src-full { grid-column: 1; grid-row: 1; }
+  .src-vec { grid-column: 1; grid-row: 2; }
+  .merge-svg { grid-column: 2; grid-row: 1 / 3; width: 100%; height: 100%; align-self: center; }
+  .p-rrf { grid-column: 3; grid-row: 1 / 3; align-self: center; }
+  .p-mid { grid-column: 5; grid-row: 1 / 3; align-self: center; }
+  .p-final { grid-column: 7; grid-row: 1 / 3; align-self: center; }
+  .p-link { grid-row: 1 / 3; align-self: center; }
+  .p-node {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface-2);
+    padding: 18px 18px 16px;
+  }
+  .p-node h4 { font-size: 15px; font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+  .p-node .sub { font-family: var(--font-mono); font-size: 11px; color: var(--faint); }
+  .p-node p { font-size: 12.5px; color: var(--muted); margin-top: 8px; line-height: 1.6; }
+  .p-node.amber { border-color: rgba(242,176,78,.3); }
+  .p-node.amber h4::before {
+    content: ""; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--amber); box-shadow: 0 0 8px rgba(242,176,78,.7);
+  }
+  .p-node.violet { border-color: rgba(124,108,255,.35); }
+  .p-node.violet h4::before {
+    content: ""; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--violet); box-shadow: 0 0 8px rgba(124,108,255,.8);
+  }
+  .p-node.end {
+    border-color: rgba(124,108,255,.5);
+    background: linear-gradient(160deg, rgba(124,108,255,.16) 0%, var(--surface-2) 70%);
+    box-shadow: 0 0 32px -8px rgba(124,108,255,.35);
+  }
+  .p-node.end h4::before {
+    content: ""; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--violet-soft); box-shadow: 0 0 10px rgba(169,156,255,.9);
+  }
+  .p-link { position: relative; height: 2px; background: var(--line); }
+  .p-link::after {
+    content: "";
+    position: absolute;
+    top: -3px; left: 0;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--violet-soft);
+    box-shadow: 0 0 10px rgba(169,156,255,.9);
+    animation: travel 2.2s linear infinite;
+  }
+  @keyframes travel {
+    from { left: 0; opacity: 0; }
+    15% { opacity: 1; }
+    85% { opacity: 1; }
+    to { left: calc(100% - 8px); opacity: 0; }
+  }
+  .pipeline-note {
+    margin-top: 34px;
+    padding-top: 22px;
+    border-top: 1px solid var(--line-soft);
+    display: flex;
+    gap: 40px;
+    flex-wrap: wrap;
+  }
+  .pipeline-note .n { font-size: 13px; color: var(--muted); max-width: 300px; }
+  .pipeline-note .n b { color: var(--text); font-weight: 600; }
+
+  /* ---------- stats band ---------- */
+  .stats-band {
+    border-top: 1px solid var(--line-soft);
+    border-bottom: 1px solid var(--line-soft);
+    background: linear-gradient(180deg, rgba(17,20,42,.5), rgba(10,12,24,0));
+  }
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .stat {
+    padding: 44px 30px;
+    text-align: left;
+  }
+  .stat + .stat { border-left: 1px solid var(--line-soft); }
+  .stat .num {
+    font-family: var(--font-mono);
+    font-size: clamp(30px, 3.4vw, 42px);
+    font-weight: 500;
+    color: var(--text);
+    line-height: 1.1;
+    margin-bottom: 8px;
+  }
+  .stat .num em { font-style: normal; color: var(--amber); }
+  .stat .lbl { font-size: 13px; color: var(--faint); }
+
+  /* ---------- quickstart ---------- */
+  .quickstart {
+    display: grid;
+    grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
+    gap: 56px;
+    align-items: start;
+  }
+  .steps { list-style: none; counter-reset: step; margin-top: 8px; }
+  .steps li {
+    counter-increment: step;
+    display: flex;
+    gap: 18px;
+    padding: 18px 0;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .steps li:last-child { border-bottom: none; }
+  .steps li::before {
+    content: counter(step, decimal-leading-zero);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--violet-soft);
+    padding-top: 3px;
+  }
+  .steps h4 { font-size: 15.5px; font-weight: 600; margin-bottom: 4px; }
+  .steps p { font-size: 13.5px; color: var(--muted); }
+  .steps code {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--amber-soft);
+    background: rgba(242,176,78,.08);
+    padding: 1px 6px;
+    border-radius: 5px;
+  }
+
+  .terminal {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: #0D0F1E;
+    overflow: hidden;
+    box-shadow: 0 32px 64px -32px rgba(0,0,0,.85), 0 0 0 1px rgba(124,108,255,.05);
+    position: sticky;
+    top: 96px;
+  }
+  .terminal .term-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .term-head .lights { display: flex; gap: 6px; }
+  .term-head .lights i { width: 9px; height: 9px; border-radius: 50%; background: var(--line); }
+  .term-head .lights i:first-child { background: #E5655F; }
+  .term-head .lights i:nth-child(2) { background: var(--amber); }
+  .term-head .lights i:nth-child(3) { background: #4EC98A; }
+  .term-head span { font-family: var(--font-mono); font-size: 11.5px; color: var(--faint); margin-left: 8px; }
+  .terminal pre {
+    padding: 22px 22px 26px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.85;
+    overflow-x: auto;
+    color: #C9CEEA;
+  }
+  .terminal pre .p { color: var(--violet-soft); }        /* prompt */
+  .terminal pre .c { color: var(--faint); }              /* comment */
+  .terminal pre .k { color: var(--amber-soft); }         /* key */
+  .terminal pre .s { color: #8FD9A8; }                   /* string */
+  .terminal pre .cursor {
+    display: inline-block;
+    width: 8px; height: 15px;
+    background: var(--violet-soft);
+    vertical-align: -2px;
+    animation: blink 1.1s steps(1) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* ---------- tools preview ---------- */
+  .tools-panel {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    overflow: hidden;
+  }
+  .tools-search {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 22px;
+    border-bottom: 1px solid var(--line-soft);
+    color: var(--faint);
+  }
+  .tools-search input {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 13.5px;
+  }
+  .tools-search input::placeholder { color: var(--faint); }
+  .tools-search .count { font-family: var(--font-mono); font-size: 12px; }
+  .tool-row {
+    display: grid;
+    grid-template-columns: 250px 1fr auto;
+    gap: 20px;
+    align-items: center;
+    padding: 15px 22px;
+    border-bottom: 1px solid var(--line-soft);
+    transition: background .15s;
+  }
+  .tool-row:last-child { border-bottom: none; }
+  .tool-row:hover { background: var(--surface-2); }
+  .tool-row code {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--amber-soft);
+  }
+  .tool-row p { font-size: 13.5px; color: var(--muted); }
+  .tool-row .tag {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--faint);
+    border: 1px solid var(--line);
+    padding: 3px 9px;
+    border-radius: 999px;
+  }
+  .tools-more {
+    display: block;
+    text-align: center;
+    padding: 16px;
+    font-size: 13.5px;
+    color: var(--violet-soft);
+    text-decoration: none;
+    border-top: 1px solid var(--line-soft);
+    background: rgba(124,108,255,.04);
+  }
+  .tools-more:hover { background: rgba(124,108,255,.09); }
+
+  /* ---------- final cta ---------- */
+  .final {
+    text-align: left;
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    padding: 72px 64px;
+    background:
+      radial-gradient(80% 140% at 100% 0%, rgba(242,176,78,.09) 0%, transparent 55%),
+      radial-gradient(90% 140% at 0% 100%, rgba(124,108,255,.14) 0%, transparent 60%),
+      var(--surface);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 40px;
+    flex-wrap: wrap;
+  }
+  .final h2 {
+    font-size: clamp(26px, 3vw, 36px);
+    font-weight: 700;
+    line-height: 1.3;
+    margin-bottom: 10px;
+  }
+  .final p { color: var(--muted); font-size: 15px; max-width: 30em; }
+
+  footer {
+    border-top: 1px solid var(--line-soft);
+    padding: 36px 0 44px;
+    margin-top: 96px;
+  }
+  .foot-inner {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    font-size: 13px;
+    color: var(--faint);
+  }
+  .foot-inner a { color: var(--muted); text-decoration: none; }
+  .foot-inner a:hover { color: var(--text); }
+  .foot-inner .right { margin-left: auto; font-family: var(--font-mono); font-size: 12px; }
+
+  /* ---------- hero entrance ---------- */
+  .rise { opacity: 0; animation: fadeUp .7s ease-out both; }
+
+  /* ---------- responsive ---------- */
+  @media (max-width: 980px) {
+    .hero { grid-template-columns: 1fr; padding: 64px 0; gap: 44px; }
+    .lanes { grid-template-columns: 1fr; }
+    .lane + .lane { border-left: none; border-top: 1px solid var(--line-soft); }
+    .lane p { min-height: 0; }
+    .pipeline { grid-template-columns: 1fr; grid-template-rows: none; gap: 14px; }
+    .pipeline > * { grid-column: 1 !important; grid-row: auto !important; }
+    .merge-svg { display: none; }
+    .p-link { width: 2px; height: 34px; margin: 0 auto; }
+    .p-link::after { animation: none; display: none; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .stat:nth-child(3) { border-left: none; }
+    .stat { border-top: 1px solid var(--line-soft); }
+    .stat:nth-child(-n+2) { border-top: none; }
+    .quickstart { grid-template-columns: 1fr; }
+    .terminal { position: static; }
+    .tool-row { grid-template-columns: 1fr; gap: 6px; }
+    .tool-row .tag { justify-self: start; }
+    .nav-links a:not(.btn) { display: none; }
+    .final { padding: 48px 32px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+    .mem-node, .ctx-chip, .stage-foot, .rise { opacity: 1 !important; }
+    .flow-line { stroke-dashoffset: 0 !important; }
+    .budget-fill { width: 102px !important; }
+    html { scroll-behavior: auto; }
+  }
+</style>
+</head>
+<body>
+
+<div class="glow-field"></div>
+<div class="grid-veil"></div>
+
+<nav>
+  <div class="nav-inner">
+    <a class="brand" href="#">
+      <span class="brand-mark">召<em>回</em></span>
+      <span class="brand-sub">AGENT RECALL</span>
+    </a>
+    <div class="nav-links">
+      <a href="#surfaces">做什么</a>
+      <a href="#retrieval">怎么检索</a>
+      <a href="#start">怎么用</a>
+      <a href="#tools">工具</a>
+      <a class="btn primary small" href="#start">进入控制台</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <!-- ============ HERO ============ -->
+  <header class="hero">
+    <div>
+      <span class="hero-kicker rise" style="animation-delay:.05s">
+        <span class="dot"></span>
+        自托管 · 记忆在远端 Postgres
+      </span>
+      <h1 class="rise" style="animation-delay:.15s">
+        <span class="zh">下次开会话，</span>
+        <span class="zh">它<span class="recalled">还记得</span>。</span>
+      </h1>
+      <p class="hero-lede rise" style="animation-delay:.25s">
+        给 Claude Code、Codex、OpenCode、pi 的长期记忆服务。上次的<strong>架构决定</strong>、踩过的<strong>坑</strong>、你说过要记住的<strong>偏好</strong>——新会话开始时，自动回到它的上下文里。
+      </p>
+      <div class="hero-ctas rise" style="animation-delay:.35s">
+        <a class="btn primary" href="#start">接上我的 agent</a>
+        <a class="btn ghost" href="#surfaces">看看它做什么</a>
+      </div>
+      <div class="hero-meta rise" style="animation-delay:.45s">
+        <div class="m"><b>66</b>MCP 工具</div>
+        <div class="m"><b>4</b>种 agent 宿主</div>
+        <div class="m"><b>2s</b>注入超时预算</div>
+        <div class="m"><b>2 路</b>召回，RRF 融合</div>
+      </div>
+    </div>
+
+    <!-- the recall moment -->
+    <div class="recall-stage rise" style="animation-delay:.3s">
+      <div class="stage-head">
+        <span class="lights"><i></i><i></i><i></i></span>
+        <code>POST /api/hooks/context</code>
+      </div>
+      <svg class="recall-svg" viewBox="0 0 560 400" fill="none" role="img" aria-label="记忆库中的相关记忆被抽出，注入当前会话的上下文">
+        <defs>
+          <radialGradient id="nodeGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#F2B04E" stop-opacity=".9"/>
+            <stop offset="100%" stop-color="#F2B04E" stop-opacity="0"/>
+          </radialGradient>
+          <linearGradient id="flowGrad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#F2B04E" stop-opacity=".9"/>
+            <stop offset="100%" stop-color="#A99CFF" stop-opacity=".9"/>
+          </linearGradient>
+        </defs>
+
+        <!-- memory field label -->
+        <text x="36" y="42" font-family="JetBrains Mono, monospace" font-size="11" fill="#5C6188" class="rise" style="animation-delay:.5s">记忆库 · 12,438 条</text>
+
+        <!-- faint mesh -->
+        <g stroke="#232748" stroke-width="1" opacity=".55">
+          <line x1="72" y1="96" x2="140" y2="150"/>
+          <line x1="140" y1="150" x2="92" y2="224"/>
+          <line x1="140" y1="150" x2="196" y2="110"/>
+          <line x1="92" y1="224" x2="160" y2="286"/>
+          <line x1="196" y1="110" x2="216" y2="206"/>
+          <line x1="216" y1="206" x2="160" y2="286"/>
+          <line x1="160" y1="286" x2="110" y2="340"/>
+          <line x1="216" y1="206" x2="92" y2="224"/>
+        </g>
+
+        <!-- dormant memory nodes -->
+        <g fill="#F2B04E">
+          <circle class="mem-node" style="animation-delay:.55s" cx="72"  cy="96"  r="3.5" opacity=".4"/>
+          <circle class="mem-node" style="animation-delay:.62s" cx="196" cy="110" r="3"   opacity=".35"/>
+          <circle class="mem-node" style="animation-delay:.69s" cx="48"  cy="180" r="2.5" opacity=".3"/>
+          <circle class="mem-node" style="animation-delay:.76s" cx="160" cy="286" r="3"   opacity=".35"/>
+          <circle class="mem-node" style="animation-delay:.83s" cx="110" cy="340" r="2.5" opacity=".3"/>
+          <circle class="mem-node" style="animation-delay:.90s" cx="216" cy="290" r="2.5" opacity=".28"/>
+        </g>
+
+        <!-- lit memory nodes (the recalled ones) -->
+        <g>
+          <circle class="mem-node pulse" style="animation-delay:.7s"  cx="140" cy="150" r="12" fill="url(#nodeGlow)"/>
+          <circle class="mem-node" style="animation-delay:.7s"  cx="140" cy="150" r="5" fill="#FFD08A"/>
+          <circle class="mem-node pulse" style="animation-delay:.85s" cx="92"  cy="224" r="12" fill="url(#nodeGlow)"/>
+          <circle class="mem-node" style="animation-delay:.85s" cx="92"  cy="224" r="5" fill="#FFD08A"/>
+          <circle class="mem-node pulse" style="animation-delay:1s"   cx="216" cy="206" r="12" fill="url(#nodeGlow)"/>
+          <circle class="mem-node" style="animation-delay:1s"   cx="216" cy="206" r="5" fill="#FFD08A"/>
+        </g>
+
+        <!-- node labels -->
+        <g font-size="11" fill="#9298BC" font-family="PingFang SC, sans-serif">
+          <text class="mem-node" style="animation-delay:1.1s" x="152" y="136">架构决定 · Postgres</text>
+          <text class="mem-node" style="animation-delay:1.2s" x="60"  y="252">坑 · RRF 权重</text>
+          <text class="mem-node" style="animation-delay:1.3s" x="186" y="236">偏好 · 中文回复</text>
+        </g>
+
+        <!-- flow lines into context card -->
+        <g stroke="url(#flowGrad)" stroke-width="1.6" fill="none">
+          <path class="flow-line" style="animation-delay:1.15s" d="M146 146 C 240 120, 280 128, 332 138"/>
+          <path class="flow-line" style="animation-delay:1.35s" d="M98 220 C 200 210, 260 200, 332 192"/>
+          <path class="flow-line" style="animation-delay:1.55s" d="M222 210 C 270 226, 300 238, 332 246"/>
+        </g>
+
+        <!-- travelling pulses -->
+        <g fill="#FFD08A">
+          <circle r="3" class="pulse">
+            <animateMotion dur="2.6s" repeatCount="indefinite" begin="2s" path="M146 146 C 240 120, 280 128, 332 138"/>
+          </circle>
+          <circle r="3" class="pulse">
+            <animateMotion dur="2.9s" repeatCount="indefinite" begin="2.4s" path="M98 220 C 200 210, 260 200, 332 192"/>
+          </circle>
+          <circle r="3" class="pulse">
+            <animateMotion dur="3.2s" repeatCount="indefinite" begin="2.8s" path="M222 210 C 270 226, 300 238, 332 246"/>
+          </circle>
+        </g>
+
+        <!-- context window card -->
+        <g>
+          <rect x="332" y="84" width="196" height="218" rx="12" fill="#11142A" stroke="#3A3470" stroke-width="1.2"/>
+          <rect x="332" y="84" width="196" height="218" rx="12" fill="none" stroke="#7C6CFF" stroke-opacity=".25" stroke-width="4"/>
+          <text x="348" y="110" font-size="12" fill="#E9EBF8" font-weight="600" font-family="PingFang SC, sans-serif">当前会话</text>
+          <text x="528" y="110" text-anchor="end" font-family="JetBrains Mono, monospace" font-size="10" fill="#5C6188">context</text>
+
+          <!-- injected memory chips -->
+          <g font-family="PingFang SC, sans-serif">
+            <g class="ctx-chip" style="animation-delay:1.7s">
+              <rect x="348" y="126" width="164" height="34" rx="8" fill="#1B1F3C" stroke="#3A3470"/>
+              <circle cx="362" cy="143" r="3" fill="#F2B04E"/>
+              <text x="372" y="147" font-size="11" fill="#C9CEEA">默认数据库用 Postgres</text>
+            </g>
+            <g class="ctx-chip" style="animation-delay:1.9s">
+              <rect x="348" y="168" width="164" height="34" rx="8" fill="#1B1F3C" stroke="#3A3470"/>
+              <circle cx="362" cy="185" r="3" fill="#F2B04E"/>
+              <text x="372" y="189" font-size="11" fill="#C9CEEA">RRF 权重别动 k=60</text>
+            </g>
+            <g class="ctx-chip" style="animation-delay:2.1s">
+              <rect x="348" y="210" width="164" height="34" rx="8" fill="#1B1F3C" stroke="#3A3470"/>
+              <circle cx="362" cy="227" r="3" fill="#F2B04E"/>
+              <text x="372" y="231" font-size="11" fill="#C9CEEA">回复一律用中文</text>
+            </g>
+          </g>
+
+          <!-- token budget bar -->
+          <text x="348" y="272" font-family="JetBrains Mono, monospace" font-size="10" fill="#5C6188">token 预算 2000</text>
+          <text x="512" y="272" text-anchor="end" font-family="JetBrains Mono, monospace" font-size="10" fill="#A99CFF">1240</text>
+          <rect x="348" y="280" width="164" height="5" rx="2.5" fill="#1B1F3C"/>
+          <rect class="budget-fill" style="animation-delay:2.2s" x="348" y="280" height="5" rx="2.5" fill="url(#flowGrad)"/>
+        </g>
+      </svg>
+      <div class="stage-foot">
+        <span>会话开始 · 插件注入相关记忆</span>
+        <code>超时 2s · 失败落本地 spool</code>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============ THREE SURFACES ============ -->
+  <section id="surfaces">
+    <div class="sec-head">
+      <span class="sec-index">/ 做什么</span>
+      <h2>一台你自己跑的记忆服务，<br />三个面各管一件事。</h2>
+      <p>Agent 通过插件自动写入和注入，通过 MCP 主动存取，人通过网页查看和整理。数据库走远端 Postgres。Meilisearch 和 Qdrant 按需再配。</p>
+    </div>
+    <div class="lanes">
+      <div class="lane">
+        <div class="glyph">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="3.2"/></svg>
+        </div>
+        <h3>自动记下</h3>
+        <p>插件接在会话上：开场注入相关记忆，每条提问前再补一段，工具调用后记一笔观察，会话结束生成摘要。请求超过 2 秒就放弃，失败事件落在本地 spool 之后补投。</p>
+        <div class="carrier">载体 · <b>plugins/ 四种宿主插件</b></div>
+      </div>
+      <div class="lane">
+        <div class="glyph">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l6-5-6-5M12 19h8"/></svg>
+        </div>
+        <h3>主动存取</h3>
+        <p>stdio MCP 服务把记忆库暴露成 66 个 memory_* 工具。Agent 用它们保存事实、按问题召回、改出新版本、忘掉、整理。MCP 进程只转发 HTTP，存储和检索都在服务器上。</p>
+        <div class="carrier">载体 · <b>@agent-recall/mcp</b></div>
+      </div>
+      <div class="lane">
+        <div class="glyph">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>
+        </div>
+        <h3>人来看</h3>
+        <p>登录之后是控制台：记忆的筛选、搜索、编辑和版本对比，会话时间线，访问令牌，MCP 客户端配置，以及精排和自动遗忘。令牌和客户端配置只在网页里签发。</p>
+        <div class="carrier">载体 · <b>这个网页</b></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ RETRIEVAL ============ -->
+  <section id="retrieval">
+    <div class="sec-head">
+      <span class="sec-index">/ 检索</span>
+      <h2>一次召回，两路并行，<br />融合之后再精排。</h2>
+      <p>写入前会做隐私清洗——API key、Bearer token、PEM 和写在 &lt;private&gt; 里的内容都不会进库。编辑不覆盖旧文本，而是挂上新版本，检索只认最新版。</p>
+    </div>
+    <div class="pipeline-panel">
+      <div class="pipeline">
+        <div class="p-node amber src-full">
+          <h4>全文检索</h4>
+          <div class="sub">Meilisearch</div>
+          <p>词法一路，精确的词和短语不会漏。</p>
+        </div>
+        <div class="p-node amber src-vec">
+          <h4>向量检索</h4>
+          <div class="sub">Qdrant · DashScope embedding</div>
+          <p>语义一路，换个说法也能找到。</p>
+        </div>
+        <svg class="merge-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M0 25 C 55 25, 45 50, 100 50" fill="none" stroke="#7C6CFF" stroke-opacity=".55" stroke-width="1.6" vector-effect="non-scaling-stroke"/>
+          <path d="M0 75 C 55 75, 45 50, 100 50" fill="none" stroke="#7C6CFF" stroke-opacity=".55" stroke-width="1.6" vector-effect="non-scaling-stroke"/>
+        </svg>
+        <div class="p-node violet p-rrf">
+          <h4>RRF 融合</h4>
+          <div class="sub">Reciprocal Rank Fusion</div>
+          <p>两路名次互相校准，谁排得前谁说了算。</p>
+        </div>
+        <div class="p-link"></div>
+        <div class="p-node violet p-mid">
+          <h4>精排</h4>
+          <div class="sub">可选 · 失败退回融合结果</div>
+          <p>设置里打开，候选更多，给出精排分数。</p>
+        </div>
+        <div class="p-link"></div>
+        <div class="p-node end p-final">
+          <h4>上下文注入</h4>
+          <div class="sub">POST /api/hooks/context</div>
+          <p>按 2000 token 预算裁好，直接进提示词。</p>
+        </div>
+      </div>
+      <div class="pipeline-note">
+        <div class="n"><b>缺一路也能跑。</b>不配 Meilisearch 或 Qdrant 时，缺的那一路自动跳过，关系库里的检索继续可用。</div>
+        <div class="n"><b>去重</b>在同一内容短时间窗口内生效，近重复返回已有记录。注入只用来源为 web、agent、summary、import 的记忆。</div>
+        <div class="n"><b>embedding 服务可换。</b>向量召回和精排会把文本发给配置的服务（默认 DashScope），换成自建地址就完全不出网。</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ STATS ============ -->
+  <div class="stats-band">
+    <div class="stats">
+      <div class="stat"><div class="num">66</div><div class="lbl">个 MCP 工具，写入 / 召回 / 浏览 / 整理</div></div>
+      <div class="stat"><div class="num">4</div><div class="lbl">种宿主插件：Claude Code、Codex、OpenCode、pi</div></div>
+      <div class="stat"><div class="num"><em>2000</em></div><div class="lbl">token 默认注入预算，裁好再进上下文</div></div>
+      <div class="stat"><div class="num"><em>自托管</em></div><div class="lbl">跑在你自己的机器上；embedding 可换自建，不配不出网</div></div>
+    </div>
+  </div>
+
+  <!-- ============ QUICKSTART ============ -->
+  <section id="start">
+    <div class="quickstart">
+      <div>
+        <div class="sec-head" style="margin-bottom:24px">
+          <span class="sec-index">/ 怎么用</span>
+          <h2>四条命令，<br />让它开始记。</h2>
+          <p>需要 Node.js 22 和 pnpm 10。令牌只在网页里签发，只显示一次。</p>
+        </div>
+        <ol class="steps">
+          <li>
+            <div>
+              <h4>启动服务和网页</h4>
+              <p>仓库根目录 <code>pnpm install && pnpm dev</code>，网页在 5178，接口在 8787。</p>
+            </div>
+          </li>
+          <li>
+            <div>
+              <h4>注册，签发一把令牌</h4>
+              <p>登录后进「MCP 客户端」注册客户端，拿到可粘贴的配置和一把 <code>arm_</code> 令牌。</p>
+            </div>
+          </li>
+          <li>
+            <div>
+              <h4>构建 MCP 入口，交给 agent</h4>
+              <p><code>pnpm --filter @agent-recall/mcp build</code>，把右边的配置贴进 agent。</p>
+            </div>
+          </li>
+          <li>
+            <div>
+              <h4>让它存，再让它找</h4>
+              <p>说「记住我们用远端 Postgres 做默认数据库」。下一场会话，它会自己想起来。</p>
+            </div>
+          </li>
+        </ol>
+      </div>
+      <div class="terminal">
+        <div class="term-head">
+          <span class="lights"><i></i><i></i><i></i></span>
+          <span>~/agent-recall — zsh</span>
+        </div>
+        <pre><span class="c"># 1. 起服务</span>
+<span class="p">$</span> pnpm install && pnpm dev
+<span class="c">#  web → http://127.0.0.1:5178   api → http://127.0.0.1:8787</span>
+
+<span class="c"># 2. 构建 MCP 入口</span>
+<span class="p">$</span> pnpm --filter @agent-recall/mcp build
+
+<span class="c"># 3. 贴进 agent 的 MCP 配置</span>
+{
+  <span class="k">"mcpServers"</span>: {
+    <span class="k">"agent-recall"</span>: {
+      <span class="k">"command"</span>: <span class="s">"node"</span>,
+      <span class="k">"args"</span>: [<span class="s">".../apps/mcp/dist/index.js"</span>],
+      <span class="k">"env"</span>: {
+        <span class="k">"AGENT_RECALL_URL"</span>: <span class="s">"http://127.0.0.1:8787"</span>,
+        <span class="k">"AGENT_RECALL_TOKEN"</span>: <span class="s">"arm_..."</span>
+      }
+    }
+  }
+}
+
+<span class="p">$</span> <span class="cursor"></span></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ TOOLS ============ -->
+  <section id="tools">
+    <div class="sec-head">
+      <span class="sec-index">/ 工具</span>
+      <h2>66 个工具，<br />日常只用这一小把。</h2>
+      <p>全部由 MCP 暴露。写入与遗忘、召回、浏览、整理，按场景分组，网页里可以按名字和用途筛选。</p>
+    </div>
+    <div class="tools-panel">
+      <div class="tools-search">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <input type="search" placeholder="按名字或用途筛选，例如 recall" aria-label="筛选工具" />
+        <span class="count">66 个工具</span>
+      </div>
+      <div class="tool-row">
+        <code>memory_remember</code>
+        <p>用户明确说「记住」时用，保存一条事实或偏好。</p>
+        <span class="tag">写入</span>
+      </div>
+      <div class="tool-row">
+        <code>memory_recall</code>
+        <p>针对一个具体问题做词法和向量融合召回。</p>
+        <span class="tag">召回</span>
+      </div>
+      <div class="tool-row">
+        <code>memory_context</code>
+        <p>返回按 token 预算裁好的上下文，直接放进提示词。</p>
+        <span class="tag">召回</span>
+      </div>
+      <div class="tool-row">
+        <code>memory_lesson_save</code>
+        <p>把一条教训存成 lesson：什么发生了，下次怎么做。</p>
+        <span class="tag">写入</span>
+      </div>
+      <div class="tool-row">
+        <code>memory_update</code>
+        <p>编辑一条记忆，生成新版本，旧版本留在版本链里。</p>
+        <span class="tag">写入</span>
+      </div>
+      <div class="tool-row">
+        <code>memory_next</code>
+        <p>开场简报：未完成的行动、最近一场会话、最新 5 条记忆。</p>
+        <span class="tag">浏览</span>
+      </div>
+      <a class="tools-more" href="#">在网页里看全部 66 个工具</a>
+    </div>
+  </section>
+
+  <!-- ============ FINAL CTA ============ -->
+  <section style="padding-bottom:0">
+    <div class="final">
+      <div>
+        <h2>让下一场会话，<br />从「记得」开始。</h2>
+        <p>打开控制台注册账号，签发第一把令牌，把记忆接进你的 agent。</p>
+      </div>
+      <div style="display:flex;gap:14px;flex-shrink:0">
+        <a class="btn primary" href="#">进入控制台</a>
+        <a class="btn ghost" href="#start">先看怎么接</a>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<footer>
+  <div class="wrap foot-inner">
+    <a class="brand" href="#">
+      <span class="brand-mark" style="font-size:16px">召<em>回</em></span>
+    </a>
+    <a href="#">README</a>
+    <a href="#">插件</a>
+    <a href="#">API</a>
+    <span class="right">agent-recall · self-hosted</span>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>会话 · 召回控制台 v2</title>
+<link rel="stylesheet" href="console.css">
+<style>
+  /* ---- 主从布局：左列表 + 右时间线 ---- */
+  .md-split {
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+
+  /* 左：会话列表 */
+  .sess-list {
+    position: sticky;
+    top: 24px;
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 48px);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .sess-list-head {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface-2);
+  }
+  .sess-list-head input {
+    width: 100%;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    border-radius: var(--radius-sm);
+    padding: 7px 11px;
+    font-size: 13px;
+  }
+  .sess-list-head input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .sess-scroll { overflow-y: auto; }
+  .sess-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    border: none;
+    border-left: 3px solid transparent;
+    background: none;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+    cursor: pointer;
+    transition: background-color .12s ease;
+  }
+  .sess-item:hover { background: var(--surface-2); }
+  .sess-item.active { background: var(--accent-soft); border-left-color: var(--accent); }
+  .sess-item .sid {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    color: var(--ink);
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .sess-item .meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 5px;
+    font-size: 12px;
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+  }
+  .sess-item .meta .proj {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 120px;
+  }
+
+  /* 右：详情 */
+  .sess-detail { min-width: 0; }
+  .sess-detail-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 18px;
+  }
+  .sess-detail-head .sid {
+    font-family: var(--font-mono);
+    font-size: 15px;
+    word-break: break-all;
+  }
+  .sess-detail-head .meta {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 8px;
+    flex-wrap: wrap;
+  }
+  .sess-summary-strip {
+    display: flex;
+    gap: 26px;
+    padding: 12px 18px;
+    margin-bottom: 18px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+  }
+  .sess-summary-strip .num {
+    font-family: var(--font-display);
+    font-size: 19px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.3;
+  }
+  .sess-summary-strip .label { font-size: 12px; color: var(--ink-3); }
+
+  /* 时间线 */
+  .tl { display: flex; flex-direction: column; }
+  .tl-item {
+    position: relative;
+    padding: 4px 0 16px 22px;
+    border-left: 2px solid var(--line);
+  }
+  .tl-item::before {
+    content: "";
+    position: absolute;
+    left: -5px; top: 12px;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--tab-web);
+  }
+  .tl-item.origin-agent::before { background: var(--tab-agent); }
+  .tl-item.origin-hook::before { background: var(--tab-hook); }
+  .tl-item.origin-import::before { background: var(--tab-import); }
+  .tl-item.origin-summary::before { background: var(--tab-summary); }
+  .tl-item:last-child { padding-bottom: 4px; }
+  .tl-item.origin-hook { opacity: .82; }
+  .tl-item.origin-hook:hover { opacity: 1; }
+  .tl-item.origin-summary {
+    background: var(--tab-summary-soft);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    padding: 10px 14px 14px 22px;
+    margin-bottom: 6px;
+  }
+  .tl-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+  .tl-body { color: var(--ink-2); font-size: 14px; line-height: 1.75; }
+  .tl-body .strong { color: var(--ink); font-weight: 600; }
+
+  @media (max-width: 1100px) {
+    .md-split { grid-template-columns: 1fr; }
+    .sess-list { position: static; max-height: 320px; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="rail">
+    <a class="brand" href="index.html">
+      <p class="brand-mark">召回</p>
+      <p class="brand-sub">AGENT RECALL</p>
+    </a>
+    <nav class="rail-nav">
+      <p class="rail-group">记录</p>
+      <a href="index.html">说明</a>
+      <a href="memories.html">记忆<span class="count">1,284</span></a>
+      <a href="sessions.html" class="active">会话<span class="count">96</span></a>
+      <a href="state.html">状态</a>
+      <p class="rail-group">洞察</p>
+      <a href="graph.html">关系</a>
+      <a href="ops.html">治理</a>
+      <p class="rail-group">系统</p>
+      <a href="ledger.html">令牌</a>
+      <a href="ledger.html#mcp">MCP 客户端</a>
+      <a href="settings.html">设置</a>
+    </nav>
+    <div class="rail-foot">
+      <div class="theme-toggle" role="group" aria-label="主题">
+        <button type="button" class="active" onclick="setTheme('light')">明亮</button>
+        <button type="button" onclick="setTheme('dark')">暗色</button>
+      </div>
+      <div class="rail-user">
+        <span class="avatar">X</span>
+        <span class="email">ximing@example.com</span>
+        <button type="button" class="logout">退出</button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="stage">
+    <section class="page">
+      <header class="page-head">
+        <div>
+          <h1>会话</h1>
+          <p class="desc">按会话回看钩子与代理写下的记忆时间线，钩子碎片与摘要样式不同。</p>
+        </div>
+      </header>
+
+      <div class="md-split">
+        <!-- 左：会话列表 -->
+        <div class="sess-list">
+          <div class="sess-list-head">
+            <input placeholder="按会话 ID 或项目筛选…">
+          </div>
+          <div class="sess-scroll">
+            <button type="button" class="sess-item active">
+              <span class="sid">sess_9f2c4e1a8b3d</span>
+              <span class="meta">
+                <span class="mcard-tag web">18 条</span>
+                <span>10-07 18:42</span>
+                <span class="proj">agent-recall</span>
+              </span>
+            </button>
+            <button type="button" class="sess-item">
+              <span class="sid">sess_3a91f7c2d5e8</span>
+              <span class="meta">
+                <span class="mcard-tag web">42 条</span>
+                <span>10-06 22:31</span>
+                <span class="proj">agent-recall</span>
+              </span>
+            </button>
+            <button type="button" class="sess-item">
+              <span class="sid">sess_77b0e4a19c6f</span>
+              <span class="meta">
+                <span class="mcard-tag web">7 条</span>
+                <span>10-05 16:08</span>
+                <span class="proj">vital</span>
+              </span>
+            </button>
+            <button type="button" class="sess-item">
+              <span class="sid">sess_c2d8b5e3041a</span>
+              <span class="meta">
+                <span class="mcard-tag web">23 条</span>
+                <span>10-04 11:52</span>
+                <span class="proj">multica</span>
+              </span>
+            </button>
+            <button type="button" class="sess-item">
+              <span class="sid">sess_e5f1a8b9027c</span>
+              <span class="meta">
+                <span class="mcard-tag web">11 条</span>
+                <span>10-03 09:14</span>
+                <span class="proj">agent-recall</span>
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 右：时间线详情 -->
+        <div class="sess-detail">
+          <div class="sess-detail-head">
+            <div>
+              <span class="sid mono">sess_9f2c4e1a8b3d</span>
+              <div class="meta">
+                <span class="mini-tag">agent-recall</span>
+                <span class="hint">10-07 14:03 ~ 18:42 · 跨 4 小时 39 分</span>
+              </div>
+            </div>
+            <div class="head-actions">
+              <button type="button" class="btn">结晶为摘要</button>
+            </div>
+          </div>
+
+          <div class="sess-summary-strip">
+            <div><p class="num">18</p><p class="label">记忆</p></div>
+            <div><p class="num">9</p><p class="label">钩子观察</p></div>
+            <div><p class="num">2</p><p class="label">摘要</p></div>
+            <div><p class="num">31</p><p class="label">后被召回次数</p></div>
+          </div>
+
+          <div class="tl">
+            <div class="tl-item origin-summary">
+              <div class="tl-head">
+                <span class="mrow-time hint">18:40</span>
+                <span class="mcard-tag summary">摘要</span>
+                <span class="mcard-tag type">结论</span>
+                <span class="mini-tag">#检索</span>
+              </div>
+              <div class="tl-body">
+                <span class="strong">会话结晶：检索链路定稿。</span>召回管线定为 BM25 + 向量双路 RRF，精排作为可选第二阶段；默认策略 rrf+rerank。
+              </div>
+            </div>
+            <div class="tl-item origin-agent">
+              <div class="tl-head">
+                <span class="mrow-time hint">18:12</span>
+                <span class="mcard-tag agent">代理</span>
+                <span class="mcard-tag type">偏好</span>
+                <span class="mini-tag">#rerank</span>
+              </div>
+              <div class="tl-body">用户确认：精排默认开启，rrf 单策略只保留在 scorecard 作对照组。</div>
+            </div>
+            <div class="tl-item origin-hook">
+              <div class="tl-head">
+                <span class="mrow-time hint">16:47</span>
+                <span class="mcard-tag hook">钩子</span>
+                <span class="mcard-tag type">观察</span>
+              </div>
+              <div class="tl-body">PostToolUse：eval scorecard 两组对照跑完，rrf+rerank 命中率 +11pt，P50 延迟 +240ms。</div>
+            </div>
+            <div class="tl-item origin-hook">
+              <div class="tl-head">
+                <span class="mrow-time hint">15:20</span>
+                <span class="mcard-tag hook">钩子</span>
+                <span class="mcard-tag type">观察</span>
+              </div>
+              <div class="tl-body">编辑了 packages/dto 的检索策略枚举，新增 rrf+rerank。</div>
+            </div>
+            <div class="tl-item origin-web">
+              <div class="tl-head">
+                <span class="mrow-time hint">14:05</span>
+                <span class="mcard-tag web">网页</span>
+                <span class="mcard-tag type">事实</span>
+                <span class="mini-tag">#rerank</span>
+              </div>
+              <div class="tl-body">rerank 走 SiliconFlow 的 BAAI/bge-reranker-v2-m3，候选上限 40，超时 8 秒回退 RRF 顺序。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+<script>
+  function setTheme(t) {
+    document.documentElement.dataset.theme = t;
+    document.querySelectorAll('.theme-toggle button').forEach(b =>
+      b.classList.toggle('active', b.textContent.trim() === (t === 'light' ? '明亮' : '暗色')));
+  }
+  document.querySelectorAll('.sess-item').forEach(item => {
+    item.addEventListener('click', () => {
+      document.querySelectorAll('.sess-item').forEach(i => i.classList.remove('active'));
+      item.classList.add('active');
+    });
+  });
+</script>
+</body>
+</html>

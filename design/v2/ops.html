@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>治理 · 召回控制台 v2</title>
+<link rel="stylesheet" href="console.css">
+<style>
+  /* 健康摘要条 */
+  .health-strip {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding: 16px 22px;
+    margin-bottom: 20px;
+    border: 1px solid var(--ok);
+    border-radius: var(--radius);
+    background: var(--ok-soft);
+  }
+  .health-strip.warn { border-color: var(--gold-line); background: var(--gold-bg); }
+  .health-strip .pulse {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--ok);
+    flex: none;
+  }
+  .health-strip .title { font-weight: 600; }
+  .health-strip .sub { font-size: 12.5px; color: var(--ink-2); }
+  .health-strip .head-actions { margin-left: auto; }
+
+  /* 操作卡栅格 */
+  .ops-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .ops-card {
+    display: flex;
+    flex-direction: column;
+    padding: 18px 20px 16px;
+  }
+  .ops-card.full { grid-column: 1 / -1; }
+  .ops-card-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+  }
+  .ops-card-head h2 {
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: .05em;
+  }
+  .ops-card .desc {
+    font-size: 13px;
+    color: var(--ink-2);
+    max-width: 56ch;
+    margin-bottom: 14px;
+  }
+  .ops-card .result {
+    font-size: 13px;
+    color: var(--ink-2);
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    margin-bottom: 14px;
+  }
+  .ops-card .result.danger-text { color: var(--danger); background: var(--danger-soft); border-color: var(--danger-line); }
+  .ops-card-foot {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: auto;
+    flex-wrap: wrap;
+  }
+  .ops-card-foot .spacer { margin-left: auto; }
+  .danger-zone { border-color: var(--danger-line); }
+  .danger-zone .ops-card-head h2 { color: var(--danger); }
+
+  .problem-list { list-style: none; display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+  .problem-list li {
+    border-left: 3px solid var(--gold-line);
+    background: var(--gold-bg);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+  .problem-list .fix { color: var(--ink-2); font-size: 12.5px; margin-top: 2px; }
+
+  @media (max-width: 900px) {
+    .ops-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="rail">
+    <a class="brand" href="index.html">
+      <p class="brand-mark">召回</p>
+      <p class="brand-sub">AGENT RECALL</p>
+    </a>
+    <nav class="rail-nav">
+      <p class="rail-group">记录</p>
+      <a href="index.html">说明</a>
+      <a href="memories.html">记忆<span class="count">1,284</span></a>
+      <a href="sessions.html">会话<span class="count">96</span></a>
+      <a href="state.html">状态</a>
+      <p class="rail-group">洞察</p>
+      <a href="graph.html">关系</a>
+      <a href="ops.html" class="active">治理</a>
+      <p class="rail-group">系统</p>
+      <a href="ledger.html">令牌</a>
+      <a href="ledger.html#mcp">MCP 客户端</a>
+      <a href="settings.html">设置</a>
+    </nav>
+    <div class="rail-foot">
+      <div class="theme-toggle" role="group" aria-label="主题">
+        <button type="button" class="active" onclick="setTheme('light')">明亮</button>
+        <button type="button" onclick="setTheme('dark')">暗色</button>
+      </div>
+      <div class="rail-user">
+        <span class="avatar">X</span>
+        <span class="email">ximing@example.com</span>
+        <button type="button" class="logout">退出</button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="stage">
+    <section class="page">
+      <header class="page-head">
+        <div>
+          <h1>治理</h1>
+          <p class="desc">诊断、合并重复、反思、快照、审计、收到的分享，以及和另一台服务同步。自动遗忘仍在设置里。</p>
+        </div>
+      </header>
+
+      <!-- 健康摘要 -->
+      <div class="health-strip warn">
+        <span class="pulse" style="background:var(--gold-ink);"></span>
+        <div>
+          <p class="title">诊断发现 2 项问题</p>
+          <p class="sub">上次检查 10-07 18:00 · 自愈会补索引，并清除过期记忆与长期未命中的钩子碎片</p>
+        </div>
+        <div class="head-actions">
+          <button type="button" class="btn">重新诊断</button>
+          <button type="button" class="btn danger">自愈</button>
+        </div>
+      </div>
+
+      <div class="ops-grid">
+        <!-- 诊断详情 -->
+        <div class="ops-card panel full">
+          <div class="ops-card-head">
+            <h2>诊断详情</h2>
+            <span class="status bad">2 项待处理</span>
+          </div>
+          <ul class="problem-list">
+            <li>
+              46 条记忆尚未进入向量索引
+              <p class="fix">自愈会重建这些记忆的嵌入，通常发生在嵌入服务短暂不可用之后。</p>
+            </li>
+            <li>
+              12 条钩子碎片超过 30 天未被召回
+              <p class="fix">自愈会把它们从活跃索引清除，原始内容仍保留在快照里。</p>
+            </li>
+          </ul>
+        </div>
+
+        <!-- 近重复合并 -->
+        <div class="ops-card panel">
+          <div class="ops-card-head"><h2>近重复合并</h2></div>
+          <p class="desc">内容哈希相同、又分属不同版本链的记忆，只保留最新一条链。</p>
+          <div class="result danger-text">预览：3 组重复，将去掉 5 条链。</div>
+          <div class="ops-card-foot">
+            <button type="button" class="btn danger">确认合并</button>
+            <button type="button" class="btn">取消</button>
+          </div>
+        </div>
+
+        <!-- 反思 -->
+        <div class="ops-card panel">
+          <div class="ops-card-head"><h2>反思</h2></div>
+          <p class="desc">让模型通读近期记忆，产出一份「哪些结论过时、哪些偏好漂移」的报告。</p>
+          <div class="ops-card-foot">
+            <button type="button" class="btn primary">生成反思</button>
+            <span class="hint">上次：10-01 · 发现 4 条过时结论</span>
+          </div>
+        </div>
+
+        <!-- 快照 -->
+        <div class="ops-card panel">
+          <div class="ops-card-head"><h2>快照</h2></div>
+          <p class="desc">把当前全量记忆打包成一份可恢复的快照，治理操作前建议先打。</p>
+          <div class="ops-card-foot">
+            <button type="button" class="btn">新建快照</button>
+            <span class="hint">已有 6 份 · 最近 10-06</span>
+            <span class="spacer"></span>
+            <button type="button" class="btn ghost">查看全部</button>
+          </div>
+        </div>
+
+        <!-- 收到的分享 -->
+        <div class="ops-card panel">
+          <div class="ops-card-head"><h2>收到的分享</h2><span class="mcard-tag import">2 条待处理</span></div>
+          <p class="desc">其他召回实例通过 mesh 推来的记忆，逐条接受或拒绝后入库。</p>
+          <div class="ops-card-foot">
+            <button type="button" class="btn primary">逐条审阅</button>
+            <button type="button" class="btn ghost">全部拒绝</button>
+          </div>
+        </div>
+
+        <!-- 同步 -->
+        <div class="ops-card panel">
+          <div class="ops-card-head"><h2>Mesh 同步</h2><span class="status ok">已连接</span></div>
+          <p class="desc">和另一台召回服务互相同步。按项目与标签圈定同步范围。</p>
+          <div class="ops-card-foot">
+            <button type="button" class="btn">立即同步</button>
+            <span class="hint">对端：mac-mini · 上次 10-07 09:12</span>
+            <span class="spacer"></span>
+            <button type="button" class="btn ghost">配置</button>
+          </div>
+        </div>
+
+        <!-- 审计 -->
+        <div class="ops-card panel full">
+          <div class="ops-card-head"><h2>审计</h2></div>
+          <p class="desc">谁在什么时间通过哪个令牌写、改、删了记忆，全量留痕。</p>
+          <div class="ops-card-foot">
+            <button type="button" class="btn">打开审计日志</button>
+            <span class="hint">近 24 小时 138 条写入 · 2 条删除</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+<script>
+  function setTheme(t) {
+    document.documentElement.dataset.theme = t;
+    document.querySelectorAll('.theme-toggle button').forEach(b =>
+      b.classList.toggle('active', b.textContent.trim() === (t === 'light' ? '明亮' : '暗色')));
+  }
+</script>
+</body>
+</html>

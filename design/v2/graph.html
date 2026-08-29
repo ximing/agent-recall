@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>关系 · 召回控制台 v2</title>
+<link rel="stylesheet" href="console.css">
+<style>
+  .graph-split {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 20px;
+    align-items: start;
+  }
+  .graph-canvas-wrap {
+    position: relative;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .graph-canvas-wrap svg { display: block; width: 100%; height: auto; }
+  .graph-legend {
+    position: absolute;
+    left: 14px;
+    bottom: 14px;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    background: color-mix(in srgb, var(--surface) 88%, transparent);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: 12px;
+    color: var(--ink-2);
+  }
+  .graph-legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .graph-legend .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .graph-toolbar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .graph-toolbar .search-box {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    background: var(--surface);
+    padding: 0 14px;
+  }
+  .graph-toolbar .search-box input {
+    flex: 1;
+    border: none;
+    background: none;
+    padding: 10px 0;
+    font-size: 14px;
+  }
+  .graph-toolbar .search-box input:focus { outline: none; }
+  .graph-toolbar .search-box svg { color: var(--ink-3); flex: none; }
+
+  /* 右侧节点详情 */
+  .node-panel {
+    position: sticky;
+    top: 24px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    box-shadow: var(--shadow);
+  }
+  .node-panel-head {
+    padding: 16px 18px 12px;
+    border-bottom: 1px solid var(--line);
+  }
+  .node-panel-head .kind { margin-bottom: 6px; }
+  .node-panel-head .name {
+    font-family: var(--font-display);
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: .03em;
+    word-break: break-all;
+  }
+  .node-panel-body { padding: 14px 18px 18px; }
+  .node-panel-body h3 {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ink-3);
+    letter-spacing: .1em;
+    margin: 12px 0 8px;
+  }
+  .node-panel-body h3:first-child { margin-top: 0; }
+  .edge-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+  .edge-list li {
+    font-size: 13px;
+    color: var(--ink-2);
+    display: flex;
+    gap: 6px;
+    align-items: baseline;
+  }
+  .edge-list .rel { color: var(--accent); flex: none; font-size: 12px; }
+
+  @media (max-width: 1000px) {
+    .graph-split { grid-template-columns: 1fr; }
+    .node-panel { position: static; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="rail">
+    <a class="brand" href="index.html">
+      <p class="brand-mark">召回</p>
+      <p class="brand-sub">AGENT RECALL</p>
+    </a>
+    <nav class="rail-nav">
+      <p class="rail-group">记录</p>
+      <a href="index.html">说明</a>
+      <a href="memories.html">记忆<span class="count">1,284</span></a>
+      <a href="sessions.html">会话<span class="count">96</span></a>
+      <a href="state.html">状态</a>
+      <p class="rail-group">洞察</p>
+      <a href="graph.html" class="active">关系</a>
+      <a href="ops.html">治理</a>
+      <p class="rail-group">系统</p>
+      <a href="ledger.html">令牌</a>
+      <a href="ledger.html#mcp">MCP 客户端</a>
+      <a href="settings.html">设置</a>
+    </nav>
+    <div class="rail-foot">
+      <div class="theme-toggle" role="group" aria-label="主题">
+        <button type="button" class="active" onclick="setTheme('light')">明亮</button>
+        <button type="button" onclick="setTheme('dark')">暗色</button>
+      </div>
+      <div class="rail-user">
+        <span class="avatar">X</span>
+        <span class="email">ximing@example.com</span>
+        <button type="button" class="logout">退出</button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="stage">
+    <section class="page wide">
+      <header class="page-head">
+        <div>
+          <h1>关系</h1>
+          <p class="desc">节点和边都从最新、未过期的记忆里推导。点击节点看它的边，搜索会带上一步之内的邻居。</p>
+        </div>
+      </header>
+
+      <form class="graph-toolbar" onsubmit="return false;">
+        <div class="search-box">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input placeholder="项目、标签、会话或记忆摘要…" value="rerank">
+        </div>
+        <button type="submit" class="btn primary">查询</button>
+      </form>
+
+      <div class="graph-split">
+        <div class="graph-canvas-wrap">
+          <!-- 静态示意图：实现时换力导向布局 -->
+          <svg viewBox="0 0 920 540" role="img" aria-label="关系图">
+            <defs>
+              <linearGradient id="gedge" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#7B5CFF" stop-opacity=".55"/>
+                <stop offset="1" stop-color="#2FC8D8" stop-opacity=".55"/>
+              </linearGradient>
+            </defs>
+            <!-- edges -->
+            <g stroke="url(#gedge)" stroke-width="1.4" fill="none">
+              <path d="M460,270 C400,220 340,180 280,150"/>
+              <path d="M460,270 C540,230 610,190 670,150"/>
+              <path d="M460,270 C400,330 350,370 300,400"/>
+              <path d="M460,270 C540,320 600,360 650,400"/>
+              <path d="M460,270 C460,200 460,160 460,110"/>
+              <path d="M460,270 C380,270 300,270 210,270"/>
+              <path d="M460,270 C560,270 640,270 730,270"/>
+              <path d="M280,150 C360,130 390,120 460,110"/>
+              <path d="M670,150 C600,125 540,115 460,110"/>
+              <path d="M300,400 C240,360 220,320 210,270"/>
+              <path d="M650,400 C690,350 710,310 730,270"/>
+            </g>
+            <!-- center memory node -->
+            <g>
+              <circle cx="460" cy="270" r="34" fill="#6C53F0"/>
+              <circle cx="460" cy="270" r="34" fill="none" stroke="#6C53F0" stroke-opacity=".3" stroke-width="10"/>
+              <text x="460" y="266" text-anchor="middle" fill="#fff" font-size="11" font-weight="600">记忆</text>
+              <text x="460" y="280" text-anchor="middle" fill="#fff" font-size="10" opacity=".85">rerank 配置</text>
+            </g>
+            <!-- project -->
+            <g>
+              <circle cx="460" cy="110" r="24" fill="#0FA8A0"/>
+              <text x="460" y="106" text-anchor="middle" fill="#fff" font-size="10" font-weight="600">项目</text>
+              <text x="460" y="119" text-anchor="middle" fill="#fff" font-size="9" opacity=".9">agent-recall</text>
+            </g>
+            <!-- tags -->
+            <g>
+              <circle cx="280" cy="150" r="18" fill="#B8860B"/>
+              <text x="280" y="153" text-anchor="middle" fill="#fff" font-size="9">#rerank</text>
+            </g>
+            <g>
+              <circle cx="670" cy="150" r="18" fill="#B8860B"/>
+              <text x="670" y="153" text-anchor="middle" fill="#fff" font-size="9">#检索</text>
+            </g>
+            <!-- session -->
+            <g>
+              <circle cx="210" cy="270" r="20" fill="#C94FD8"/>
+              <text x="210" y="267" text-anchor="middle" fill="#fff" font-size="9" font-weight="600">会话</text>
+              <text x="210" y="279" text-anchor="middle" fill="#fff" font-size="8" opacity=".9">sess_3a91</text>
+            </g>
+            <!-- type -->
+            <g>
+              <circle cx="730" cy="270" r="18" fill="#7A6FF0"/>
+              <text x="730" y="267" text-anchor="middle" fill="#fff" font-size="9" font-weight="600">类型</text>
+              <text x="730" y="278" text-anchor="middle" fill="#fff" font-size="8" opacity=".9">事实</text>
+            </g>
+            <!-- neighbor memories -->
+            <g>
+              <circle cx="300" cy="400" r="14" fill="#9C8BFF"/>
+              <text x="300" y="428" text-anchor="middle" fill="currentColor" font-size="10" opacity=".7">候选上限 40</text>
+            </g>
+            <g>
+              <circle cx="650" cy="400" r="14" fill="#9C8BFF"/>
+              <text x="650" y="428" text-anchor="middle" font-size="10" opacity=".7">默认 rrf+rerank</text>
+            </g>
+          </svg>
+          <div class="graph-legend">
+            <span><span class="dot" style="background:#6C53F0"></span>记忆</span>
+            <span><span class="dot" style="background:#0FA8A0"></span>项目</span>
+            <span><span class="dot" style="background:#B8860B"></span>标签</span>
+            <span><span class="dot" style="background:#C94FD8"></span>会话</span>
+            <span><span class="dot" style="background:#7A6FF0"></span>类型</span>
+          </div>
+        </div>
+
+        <aside class="node-panel">
+          <div class="node-panel-head">
+            <div class="kind"><span class="mcard-tag web">记忆节点</span></div>
+            <p class="name">rerank 走 SiliconFlow 的 bge-reranker-v2-m3</p>
+          </div>
+          <div class="node-panel-body">
+            <h3>连出的边</h3>
+            <ul class="edge-list">
+              <li><span class="rel">属于项目</span>agent-recall</li>
+              <li><span class="rel">带标签</span>#rerank</li>
+              <li><span class="rel">带标签</span>#检索</li>
+              <li><span class="rel">写于会话</span>sess_3a91…</li>
+              <li><span class="rel">类型是</span>事实</li>
+            </ul>
+            <h3>一步邻居</h3>
+            <ul class="edge-list">
+              <li><span class="rel">细化</span>候选上限 40，超时 8 秒回退</li>
+              <li><span class="rel">支持</span>默认策略定为 rrf+rerank</li>
+            </ul>
+            <h3>操作</h3>
+            <div style="display:flex;gap:8px;">
+              <button type="button" class="btn">在记忆中打开</button>
+              <button type="button" class="btn ghost">扩展一度</button>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </main>
+</div>
+<script>
+  function setTheme(t) {
+    document.documentElement.dataset.theme = t;
+    document.querySelectorAll('.theme-toggle button').forEach(b =>
+      b.classList.toggle('active', b.textContent.trim() === (t === 'light' ? '明亮' : '暗色')));
+  }
+</script>
+</body>
+</html>

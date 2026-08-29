@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>记忆 · 召回控制台 v2</title>
+<link rel="stylesheet" href="console.css">
+<style>
+  /* ---- 数据带：统计收进一条 hairline ---- */
+  .stat-strip {
+    display: flex;
+    gap: 0;
+    margin-bottom: 24px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .stat-cell {
+    flex: 1;
+    padding: 14px 20px 12px;
+    border-left: 1px solid var(--line);
+    min-width: 0;
+  }
+  .stat-cell:first-child { border-left: none; }
+  .stat-cell .num {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: .03em;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.25;
+  }
+  .stat-cell .num small { font-size: 12px; font-weight: 400; color: var(--ink-3); margin-left: 4px; }
+  .stat-cell .label { font-size: 12px; color: var(--ink-3); margin-top: 1px; }
+  .stat-cell .sub { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 7px; }
+
+  /* ---- 搜索主体：分段开关 + 大输入框 + 操作 ---- */
+  .search-hero {
+    display: flex;
+    align-items: stretch;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .search-box {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    background: var(--surface);
+    padding: 5px 6px 5px 14px;
+    box-shadow: var(--shadow);
+    transition: border-color .15s ease, box-shadow .15s ease;
+  }
+  .search-box:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .search-box > svg { color: var(--ink-3); flex: none; }
+  .search-box input {
+    flex: 1;
+    border: none;
+    background: none;
+    font-size: 15px;
+    padding: 8px 0;
+    min-width: 0;
+  }
+  .search-box input:focus { outline: none; }
+  .search-box input::placeholder { color: var(--ink-3); }
+  .mode-seg {
+    display: flex;
+    flex: none;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 2px;
+    background: var(--surface-2);
+    gap: 2px;
+  }
+  .mode-seg button {
+    border: none;
+    background: transparent;
+    color: var(--ink-3);
+    font-size: 12px;
+    padding: 4px 12px;
+    border-radius: 999px;
+    transition: all .15s ease;
+  }
+  .mode-seg button.active { background: var(--accent-soft); color: var(--accent); font-weight: 500; }
+
+  /* ---- 筛选行：来源 chips + 筛选按钮 + 排序 ---- */
+  .filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .filter-bar .spacer { margin-left: auto; }
+  .filter-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--ink-2);
+    border-radius: 999px;
+    padding: 5px 13px;
+    font-size: 13px;
+  }
+  .filter-btn:hover { border-color: var(--ink-3); color: var(--ink); }
+  .filter-btn .badge {
+    background: var(--accent);
+    color: #FFF;
+    border-radius: 999px;
+    font-size: 11px;
+    min-width: 16px;
+    height: 16px;
+    display: grid;
+    place-items: center;
+    padding: 0 4px;
+  }
+  .sort-select {
+    appearance: none;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--ink-2);
+    border-radius: 999px;
+    padding: 5px 13px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .picked-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .picked-row .label { font-size: 12px; color: var(--ink-3); margin-right: 2px; }
+  .picked-row .clear-all {
+    border: none;
+    background: none;
+    color: var(--accent);
+    font-size: 12px;
+    padding: 2px 4px;
+  }
+  .picked-row .clear-all:hover { text-decoration: underline; }
+
+  /* ---- 记忆行 ---- */
+  .mlist { display: flex; flex-direction: column; gap: 12px; }
+  .mrow {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 16px 20px 13px 26px;
+    cursor: pointer;
+    transition: border-color .2s ease, box-shadow .2s ease, transform .2s ease;
+  }
+  .mrow:hover { box-shadow: var(--glow); transform: translateY(-1px); }
+  .mrow::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 15px; bottom: 15px;
+    width: 4px;
+    border-radius: 0 4px 4px 0;
+    background: var(--tab-web);
+  }
+  .mrow.origin-agent::before { background: var(--tab-agent); }
+  .mrow.origin-hook::before { background: var(--tab-hook); }
+  .mrow.origin-import::before { background: var(--tab-import); }
+  .mrow.origin-summary::before { background: var(--tab-summary); }
+  .mrow-head { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; }
+  .mrow-time { font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .mrow-actions { margin-left: auto; display: flex; gap: 2px; opacity: 0; transition: opacity .15s ease; }
+  .mrow:hover .mrow-actions { opacity: 1; }
+  .mrow-body { color: var(--ink-2); font-size: 14px; line-height: 1.75; }
+  .mrow-body .strong { color: var(--ink); font-weight: 600; }
+  .clamp {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .mrow-foot { display: flex; align-items: center; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+  .mrow-foot .score {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border-radius: 4px;
+    padding: 1px 8px;
+    font-variant-numeric: tabular-nums;
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="rail">
+    <a class="brand" href="index.html">
+      <p class="brand-mark">召回</p>
+      <p class="brand-sub">AGENT RECALL</p>
+    </a>
+    <nav class="rail-nav">
+      <p class="rail-group">记录</p>
+      <a href="index.html">说明</a>
+      <a href="memories.html" class="active">记忆<span class="count">1,284</span></a>
+      <a href="sessions.html">会话<span class="count">96</span></a>
+      <a href="state.html">状态</a>
+      <p class="rail-group">洞察</p>
+      <a href="graph.html">关系</a>
+      <a href="ops.html">治理</a>
+      <p class="rail-group">系统</p>
+      <a href="ledger.html">令牌</a>
+      <a href="ledger.html#mcp">MCP 客户端</a>
+      <a href="settings.html">设置</a>
+    </nav>
+    <div class="rail-foot">
+      <div class="theme-toggle" role="group" aria-label="主题">
+        <button type="button" class="active" onclick="setTheme('light')">明亮</button>
+        <button type="button" onclick="setTheme('dark')">暗色</button>
+      </div>
+      <div class="rail-user">
+        <span class="avatar">X</span>
+        <span class="email">ximing@example.com</span>
+        <button type="button" class="logout">退出</button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="stage">
+    <section class="page">
+      <header class="page-head">
+        <div>
+          <h1>记忆</h1>
+          <p class="desc">从网页写一条，或让代理与钩子替你记录。所有记忆都会进入召回索引。</p>
+        </div>
+        <div class="head-actions">
+          <button type="button" class="btn">导出</button>
+          <button type="button" class="btn">导入</button>
+          <button type="button" class="btn primary">＋ 新建记忆</button>
+        </div>
+      </header>
+
+      <!-- 数据带 -->
+      <div class="stat-strip">
+        <div class="stat-cell">
+          <p class="num">1,284</p>
+          <p class="label">总记忆</p>
+        </div>
+        <div class="stat-cell">
+          <p class="num">37<small>本周</small></p>
+          <p class="label">新增</p>
+        </div>
+        <div class="stat-cell">
+          <p class="num">212<small>近 7 天</small></p>
+          <p class="label">被召回</p>
+        </div>
+        <div class="stat-cell">
+          <p class="num">96.2%<small>已索引</small></p>
+          <p class="label">索引覆盖</p>
+        </div>
+        <div class="stat-cell">
+          <p class="label" style="margin-bottom: 2px;">来源分布</p>
+          <div class="sub">
+            <span class="mcard-tag agent">代理 612</span>
+            <span class="mcard-tag hook">钩子 388</span>
+            <span class="mcard-tag web">网页 194</span>
+            <span class="mcard-tag import">导入 58</span>
+            <span class="mcard-tag summary">摘要 32</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 搜索主体 -->
+      <div class="search-hero">
+        <div class="search-box">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input placeholder="搜索记忆，走 BM25 + 向量召回…" value="rerank 配置">
+          <div class="mode-seg" role="group" aria-label="搜索模式">
+            <button type="button" class="active">召回</button>
+            <button type="button">精排</button>
+          </div>
+        </div>
+        <button type="button" class="btn">预览注入</button>
+      </div>
+
+      <!-- 筛选行 -->
+      <div class="filter-bar">
+        <div class="chips">
+          <button type="button" class="chip active">全部<span class="n">1284</span></button>
+          <button type="button" class="chip">网页<span class="n">194</span></button>
+          <button type="button" class="chip">代理<span class="n">612</span></button>
+          <button type="button" class="chip">钩子<span class="n">388</span></button>
+          <button type="button" class="chip">导入<span class="n">58</span></button>
+          <button type="button" class="chip">摘要<span class="n">32</span></button>
+        </div>
+        <span class="spacer"></span>
+        <button type="button" class="filter-btn">
+          筛选
+          <span class="badge">3</span>
+        </button>
+        <select class="sort-select" aria-label="排序">
+          <option>最新创建</option>
+          <option>最近更新</option>
+          <option>最早创建</option>
+        </select>
+      </div>
+
+      <!-- 已选条件 -->
+      <div class="picked-row">
+        <span class="label">已选条件</span>
+        <button type="button" class="chip picked">类型：偏好<span class="x">✕</span></button>
+        <button type="button" class="chip picked">项目：agent-recall<span class="x">✕</span></button>
+        <button type="button" class="chip picked">创建于 10/01 之后<span class="x">✕</span></button>
+        <button type="button" class="clear-all">全部清除</button>
+      </div>
+
+      <!-- 召回提示（搜索态） -->
+      <p class="hint" style="margin-bottom: 14px; color: var(--accent);">
+        ✦ 召回结果 · 按相关度排序（BM25 + 向量 + RRF）· 已带上当前筛选
+        <button type="button" class="clear-all" style="border:none;background:none;color:var(--accent);font-size:12px;text-decoration:underline;">清除搜索</button>
+      </p>
+
+      <!-- 记忆列表 -->
+      <div class="mlist">
+        <article class="mrow origin-agent">
+          <div class="mrow-head">
+            <span class="mcard-tag agent">代理</span>
+            <span class="mcard-tag type">偏好</span>
+            <span class="mrow-time">10-07 18:42</span>
+            <div class="mrow-actions">
+              <button type="button" class="btn ghost">编辑</button>
+              <button type="button" class="btn ghost">归档</button>
+              <button type="button" class="btn ghost warn">删除</button>
+            </div>
+          </div>
+          <div class="mrow-body clamp">
+            <span class="strong">精排默认走 rrf+rerank。</span>用户确认过：召回侧的默认检索策略固定为 rrf+rerank，scorecard 里 rrf 单独一组只作对照，不再作为默认路径；前端「精排」模式与设置页的默认策略保持一致。
+          </div>
+          <div class="mrow-foot">
+            <span class="mini-tag">agent-recall</span>
+            <span class="mini-tag">#检索</span>
+            <span class="mini-tag">#rerank</span>
+            <span class="mini-tag mono">sess_9f2c…</span>
+            <span class="score">0.872</span>
+          </div>
+        </article>
+
+        <article class="mrow origin-web">
+          <div class="mrow-head">
+            <span class="mcard-tag web">网页</span>
+            <span class="mcard-tag type">事实</span>
+            <span class="mrow-time">10-07 15:10</span>
+            <div class="mrow-actions">
+              <button type="button" class="btn ghost">编辑</button>
+              <button type="button" class="btn ghost">归档</button>
+              <button type="button" class="btn ghost warn">删除</button>
+            </div>
+          </div>
+          <div class="mrow-body clamp">
+            <span class="strong">rerank 走 SiliconFlow 的 BAAI/bge-reranker-v2-m3。</span>候选上限 40，超时 8 秒；失败时回退到 RRF 顺序并在召回日志里记下 rerankError，不重试、不阻塞主路径。
+          </div>
+          <div class="mrow-foot">
+            <span class="mini-tag">agent-recall</span>
+            <span class="mini-tag">#rerank</span>
+            <span class="score">0.845</span>
+          </div>
+        </article>
+
+        <article class="mrow origin-hook">
+          <div class="mrow-head">
+            <span class="mcard-tag hook">钩子</span>
+            <span class="mcard-tag type">观察</span>
+            <span class="mrow-time">10-06 22:31</span>
+            <div class="mrow-actions">
+              <button type="button" class="btn ghost">编辑</button>
+              <button type="button" class="btn ghost warn">删除</button>
+            </div>
+          </div>
+          <div class="mrow-body clamp">
+            PostToolUse 钩子观察到：用户在 eval scorecard 上跑了两组对照，rrf+rerank 的命中率比 rrf 高 11 个点，但 P50 延迟多了 240ms。
+          </div>
+          <div class="mrow-foot">
+            <span class="mini-tag">agent-recall</span>
+            <span class="mini-tag mono">sess_3a91…</span>
+            <span class="score">0.791</span>
+          </div>
+        </article>
+
+        <article class="mrow origin-summary">
+          <div class="mrow-head">
+            <span class="mcard-tag summary">摘要</span>
+            <span class="mcard-tag type">结论</span>
+            <span class="mrow-time">10-06 21:02</span>
+            <div class="mrow-actions">
+              <button type="button" class="btn ghost">编辑</button>
+              <button type="button" class="btn ghost warn">删除</button>
+            </div>
+          </div>
+          <div class="mrow-body clamp">
+            <span class="strong">会话结晶：检索链路定稿。</span>本次会话把召回管线定为 BM25 + 向量双路 RRF，精排作为可选第二阶段；相关记忆已建边「支持」与「细化」。
+          </div>
+          <div class="mrow-foot">
+            <span class="mini-tag">agent-recall</span>
+            <span class="mini-tag">#检索</span>
+            <span class="mini-tag mono">sess_3a91…</span>
+            <span class="score">0.764</span>
+          </div>
+        </article>
+      </div>
+
+      <div style="display:flex;justify-content:center;margin-top:22px;">
+        <button type="button" class="btn">加载更多</button>
+      </div>
+    </section>
+  </main>
+</div>
+<script>
+  function setTheme(t) {
+    document.documentElement.dataset.theme = t;
+    document.querySelectorAll('.theme-toggle button').forEach(b =>
+      b.classList.toggle('active', b.textContent.trim() === (t === 'light' ? '明亮' : '暗色')));
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>召回控制台 · v2 设计稿索引</title>
+<link rel="stylesheet" href="console.css">
+<style>
+  .index-list { display: flex; flex-direction: column; }
+  .index-item {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    gap: 8px 24px;
+    padding: 20px 4px;
+    border-top: 1px solid var(--line);
+    text-decoration: none;
+    color: inherit;
+    transition: background-color .15s ease;
+  }
+  .index-item:hover { background: var(--surface-2); }
+  .index-item .name {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    color: var(--accent);
+  }
+  .index-item .what { color: var(--ink-2); font-size: 14px; }
+  .index-item .what strong { color: var(--ink); font-weight: 600; }
+  .rationale { max-width: 68ch; color: var(--ink-2); font-size: 14px; line-height: 1.9; }
+  .rationale h3 {
+    font-family: var(--font-display);
+    font-size: 16px;
+    color: var(--ink);
+    letter-spacing: .05em;
+    margin: 22px 0 6px;
+  }
+  .rationale code {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 1px 6px;
+  }
+  .rationale li { margin-left: 20px; margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="rail">
+    <a class="brand" href="index.html">
+      <p class="brand-mark">召回</p>
+      <p class="brand-sub">AGENT RECALL</p>
+    </a>
+    <nav class="rail-nav">
+      <p class="rail-group">设计稿 v2</p>
+      <a href="memories.html">记忆</a>
+      <a href="sessions.html">会话</a>
+      <a href="state.html">状态</a>
+      <a href="graph.html">关系</a>
+      <a href="ops.html">治理</a>
+      <a href="settings.html">设置</a>
+      <a href="ledger.html">令牌 / MCP</a>
+    </nav>
+    <div class="rail-foot">
+      <div class="theme-toggle" role="group" aria-label="主题">
+        <button type="button" class="active" onclick="setTheme('light')">明亮</button>
+        <button type="button" onclick="setTheme('dark')">暗色</button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="stage">
+    <section class="page">
+      <header class="page-head">
+        <h1>控制台 v2 设计稿</h1>
+        <p class="desc">确认布局与页面结构后再开发。每页一个 HTML，直接点开预览；右下主题切换可看暗色。</p>
+      </header>
+
+      <div class="panel rationale" style="padding: 24px 28px;">
+        <h3>整体布局改了什么</h3>
+        <ul>
+          <li>内容列不再贴住左导航：<code>.stage</code> 改为弹性居中，页面按性质分三档宽度 —— 标准 <code>1120px</code>、窄页 <code>760px</code>（设置/令牌/MCP）、宽页 <code>1360px</code>（关系图）。宽屏下左右留白对称，视觉重心回到中间。</li>
+          <li>rail 从 232px 收到 224px，导航加分组（记录 / 洞察 / 系统），激活态改为左侧渐变刻度线 + 浅底。</li>
+          <li>页眉统一：宋体标题 + 一行说明 + 右侧主操作，说明文字限定 56ch。</li>
+        </ul>
+        <h3>每个页面改了什么</h3>
+        <ul>
+          <li><strong>记忆</strong>：四张统计卡收成页眉下一条 hairline 数据带；搜索成为页面主体（召回/精排是输入框内的分段开关）；三行平铺筛选收进「筛选」按钮，已选条件以可移除 chip 显示。</li>
+          <li><strong>会话</strong>：手风琴改为左 360px 会话列表 + 右侧时间线详情的主从布局，可以边选边看。</li>
+          <li><strong>状态</strong>：9 个 chip tab 改为页内竖向侧栏（图标 + 名称）；行动、信号等面板重排为任务行 / 定义行。</li>
+          <li><strong>关系</strong>：chips + 列表改为 SVG 图可视化 + 图例 + 右侧节点详情。</li>
+          <li><strong>治理</strong>：7 个堆叠 panel 改为顶部健康摘要 + 双列操作卡栅格，危险操作统一二次确认样式。</li>
+          <li><strong>设置</strong>：左锚点导航 + 右分节表单，不再一屏滚到底。</li>
+        </ul>
+      </div>
+
+      <div class="index-list" style="margin-top: 24px;">
+        <a class="index-item" href="memories.html">
+          <span class="name">记忆</span>
+          <span class="what"><strong>数据带 + 搜索主体 + 筛选收纳。</strong> 列表行保留来源色签，抽屉不变。</span>
+        </a>
+        <a class="index-item" href="sessions.html">
+          <span class="name">会话</span>
+          <span class="what"><strong>主从布局。</strong> 左列表右时间线，结晶操作收进详情头部。</span>
+        </a>
+        <a class="index-item" href="state.html">
+          <span class="name">状态</span>
+          <span class="what"><strong>竖向 tab 侧栏。</strong> 九个面板各有版式，不再是裸表单。</span>
+        </a>
+        <a class="index-item" href="graph.html">
+          <span class="name">关系</span>
+          <span class="what"><strong>图可视化。</strong> 宽页 1360px，画布 + 图例 + 节点详情栏。</span>
+        </a>
+        <a class="index-item" href="ops.html">
+          <span class="name">治理</span>
+          <span class="what"><strong>健康摘要 + 操作卡栅格。</strong> 危险操作统一确认范式。</span>
+        </a>
+        <a class="index-item" href="settings.html">
+          <span class="name">设置</span>
+          <span class="what"><strong>锚点导航 + 分节表单。</strong> 窄页 760px 单列。</span>
+        </a>
+        <a class="index-item" href="ledger.html">
+          <span class="name">令牌 / MCP</span>
+          <span class="what"><strong>台账表。</strong> 创建行收进卡片头部，表格密度统一。</span>
+        </a>
+      </div>
+    </section>
+  </main>
+</div>
+<script>
+  function setTheme(t) {
+    document.documentElement.dataset.theme = t;
+    document.querySelectorAll('.theme-toggle button').forEach(b =>
+      b.classList.toggle('active', b.textContent.trim() === (t === 'light' ? '明亮' : '暗色')));
+  }
+</script>
+</body>
+</html>

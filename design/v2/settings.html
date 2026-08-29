@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>设置 · 召回控制台 v2</title>
+<link rel="stylesheet" href="console.css">
+<style>
+  .settings-split {
+    display: grid;
+    grid-template-columns: 168px 1fr;
+    gap: 28px;
+    align-items: start;
+  }
+  .anchor-nav {
+    position: sticky;
+    top: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .anchor-nav a {
+    display: block;
+    padding: 7px 12px;
+    border-radius: var(--radius-sm);
+    color: var(--ink-2);
+    font-size: 13.5px;
+    text-decoration: none;
+    border-left: 2px solid transparent;
+  }
+  .anchor-nav a:hover { background: var(--surface-2); color: var(--ink); }
+  .anchor-nav a.active {
+    color: var(--accent);
+    font-weight: 500;
+    border-left-color: var(--accent);
+    background: var(--accent-soft);
+  }
+
+  .setting-section { margin-bottom: 20px; scroll-margin-top: 24px; }
+  .setting-section .panel-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 18px 22px 0;
+  }
+  .setting-section h2 {
+    font-family: var(--font-display);
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: .05em;
+  }
+  .setting-section .section-desc {
+    padding: 6px 22px 0;
+    font-size: 13px;
+    color: var(--ink-2);
+    max-width: 62ch;
+  }
+  .setting-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 22px;
+    border-top: 1px solid var(--line);
+  }
+  .setting-row:first-of-type { margin-top: 14px; }
+  .setting-label { font-weight: 500; }
+  .setting-hint { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+  .setting-row .control { flex: none; display: flex; align-items: center; gap: 8px; }
+  .setting-row .field { width: 120px; padding: 6px 10px; font-size: 13px; }
+  .setting-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 16px;
+    padding: 14px 22px 18px;
+    border-top: 1px solid var(--line);
+  }
+  .setting-form label span {
+    display: block;
+    font-size: 12px;
+    color: var(--ink-3);
+    margin-bottom: 5px;
+  }
+  .setting-form .field { padding: 7px 11px; font-size: 13px; }
+  .setting-form .full { grid-column: 1 / -1; }
+  .setting-foot {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 13px 22px;
+    border-top: 1px solid var(--line);
+  }
+
+  /* 开关 */
+  .switch {
+    position: relative;
+    width: 42px; height: 24px;
+    border-radius: 999px;
+    border: none;
+    background: var(--line-strong);
+    cursor: pointer;
+    flex: none;
+    transition: background-color .2s ease;
+    padding: 0;
+  }
+  .switch-knob {
+    position: absolute;
+    top: 3px; left: 3px;
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0,0,0,.25);
+    transition: transform .2s ease;
+  }
+  .switch.on { background: var(--accent); }
+  .switch.on .switch-knob { transform: translateX(18px); }
+
+  .mode-badge {
+    font-size: 12px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    color: var(--ink-3);
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .mode-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .mode-badge.on { color: var(--accent); background: var(--accent-soft); border-color: var(--accent-line); }
+
+  /* 召回历史表 */
+  .log-table { width: 100%; border-collapse: collapse; }
+  .log-table th {
+    text-align: left;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ink-3);
+    padding: 10px 22px;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface-2);
+  }
+  .log-table td {
+    padding: 12px 22px;
+    border-bottom: 1px solid var(--line);
+    font-size: 13px;
+    vertical-align: middle;
+  }
+  .log-table tr:last-child td { border-bottom: none; }
+  .log-table tbody tr { cursor: pointer; transition: background-color .12s ease; }
+  .log-table tbody tr:hover { background: var(--surface-2); }
+  .log-q { max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+
+  @media (max-width: 900px) {
+    .settings-split { grid-template-columns: 1fr; }
+    .anchor-nav { position: static; flex-direction: row; flex-wrap: wrap; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="rail">
+    <a class="brand" href="index.html">
+      <p class="brand-mark">召回</p>
+      <p class="brand-sub">AGENT RECALL</p>
+    </a>
+    <nav class="rail-nav">
+      <p class="rail-group">记录</p>
+      <a href="index.html">说明</a>
+      <a href="memories.html">记忆<span class="count">1,284</span></a>
+      <a href="sessions.html">会话<span class="count">96</span></a>
+      <a href="state.html">状态</a>
+      <p class="rail-group">洞察</p>
+      <a href="graph.html">关系</a>
+      <a href="ops.html">治理</a>
+      <p class="rail-group">系统</p>
+      <a href="ledger.html">令牌</a>
+      <a href="ledger.html#mcp">MCP 客户端</a>
+      <a href="settings.html" class="active">设置</a>
+    </nav>
+    <div class="rail-foot">
+      <div class="theme-toggle" role="group" aria-label="主题">
+        <button type="button" class="active" onclick="setTheme('light')">明亮</button>
+        <button type="button" onclick="setTheme('dark')">暗色</button>
+      </div>
+      <div class="rail-user">
+        <span class="avatar">X</span>
+        <span class="email">ximing@example.com</span>
+        <button type="button" class="logout">退出</button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="stage">
+    <section class="page">
+      <header class="page-head">
+        <div>
+          <h1>设置</h1>
+          <p class="desc">检索策略、自动遗忘与召回历史。改动即时生效，不需要重启服务。</p>
+        </div>
+      </header>
+
+      <div class="settings-split">
+        <nav class="anchor-nav" aria-label="设置分节">
+          <a href="#rerank" class="active">召回精排</a>
+          <a href="#maintain">记忆维护</a>
+          <a href="#history">召回历史</a>
+        </nav>
+
+        <div>
+          <!-- 召回精排 -->
+          <section class="setting-section panel" id="rerank">
+            <div class="panel-head">
+              <h2>召回精排</h2>
+              <span class="mode-badge on"><span class="dot"></span>已启用</span>
+            </div>
+            <p class="section-desc">候选先走 BM25 + 向量的 RRF 融合，再把头部候选交给 rerank 模型重排。关掉后回退为纯 RRF。</p>
+            <div class="setting-row">
+              <div>
+                <p class="setting-label">启用 rerank 精排</p>
+                <p class="setting-hint">召回日志里会记录每次精排的耗时与失败原因</p>
+              </div>
+              <div class="control">
+                <button type="button" class="switch on" role="switch" aria-checked="true"><span class="switch-knob"></span></button>
+              </div>
+            </div>
+            <div class="setting-form">
+              <label>
+                <span>rerank 接口地址</span>
+                <input class="field" value="https://api.siliconflow.cn/v1/rerank">
+              </label>
+              <label>
+                <span>模型</span>
+                <input class="field" value="BAAI/bge-reranker-v2-m3">
+              </label>
+              <label>
+                <span>候选上限</span>
+                <input class="field" value="40">
+              </label>
+              <label>
+                <span>超时（秒）</span>
+                <input class="field" value="8">
+              </label>
+              <label class="full">
+                <span>API Key</span>
+                <input class="field mono" type="password" value="sk-••••••••••••">
+              </label>
+            </div>
+            <div class="setting-foot">
+              <button type="button" class="btn primary">保存</button>
+              <span class="ok-text">已保存 · 10-07 18:20</span>
+            </div>
+          </section>
+
+          <!-- 记忆维护 -->
+          <section class="setting-section panel" id="maintain">
+            <div class="panel-head">
+              <h2>记忆维护</h2>
+            </div>
+            <p class="section-desc">过期记忆不删除，只是退出召回与注入；治理页的快照里始终能找到原文。</p>
+            <div class="setting-row">
+              <div>
+                <p class="setting-label">自动遗忘天数</p>
+                <p class="setting-hint">超过天数且从未被召回的记忆自动过期；填 0 关闭</p>
+              </div>
+              <div class="control">
+                <input class="field" value="90" inputmode="numeric">
+                <span class="hint">天</span>
+              </div>
+            </div>
+            <div class="setting-row">
+              <div>
+                <p class="setting-label">立即执行自动遗忘</p>
+                <p class="setting-hint">按上面的天数立刻跑一遍，不等定时任务</p>
+              </div>
+              <div class="control">
+                <button type="button" class="btn">立即执行</button>
+              </div>
+            </div>
+          </section>
+
+          <!-- 召回历史 -->
+          <section class="setting-section panel" id="history">
+            <div class="panel-head">
+              <h2>召回历史</h2>
+            </div>
+            <p class="section-desc">每次召回的查询、命中与分数。点开一行看完整结果列表。</p>
+            <table class="log-table" style="margin-top:14px;">
+              <thead>
+                <tr><th>查询</th><th>策略</th><th>命中</th><th>耗时</th><th>时间</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="log-q">rerank 配置</td>
+                  <td><span class="mini-tag">rrf+rerank</span></td>
+                  <td>8</td>
+                  <td class="mono" style="font-size:12px;">412ms</td>
+                  <td class="hint">10-07 18:42</td>
+                </tr>
+                <tr>
+                  <td class="log-q">控制台布局</td>
+                  <td><span class="mini-tag">rrf+rerank</span></td>
+                  <td>5</td>
+                  <td class="mono" style="font-size:12px;">389ms</td>
+                  <td class="hint">10-07 17:10</td>
+                </tr>
+                <tr>
+                  <td class="log-q">hooks 安装</td>
+                  <td><span class="mini-tag">rrf</span></td>
+                  <td>12</td>
+                  <td class="mono" style="font-size:12px;">96ms</td>
+                  <td class="hint">10-07 15:02</td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+<script>
+  function setTheme(t) {
+    document.documentElement.dataset.theme = t;
+    document.querySelectorAll('.theme-toggle button').forEach(b =>
+      b.classList.toggle('active', b.textContent.trim() === (t === 'light' ? '明亮' : '暗色')));
+  }
+  document.querySelectorAll('.anchor-nav a').forEach(a => {
+    a.addEventListener('click', () => {
+      document.querySelectorAll('.anchor-nav a').forEach(x => x.classList.remove('active'));
+      a.classList.add('active');
+    });
+  });
+  document.querySelectorAll('.switch').forEach(s => {
+    s.addEventListener('click', () => s.classList.toggle('on'));
+  });
+</script>
+</body>
+</html>
