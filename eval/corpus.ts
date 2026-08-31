@@ -28,7 +28,7 @@ export interface EvalQuery {
 export const CORPUS: CorpusMemory[] = [
   // ---- architecture ----
   { key: 'm01', type: 'architecture', content: '架构决策：检索采用 RRF k=60 融合词法与向量两路召回', tags: ['retrieval'], project: 'agent-recall' },
-  { key: 'm02', type: 'architecture', content: '架构决策：服务端用 Fastify 5 加 PGlite 嵌入式数据库，无外部 Postgres 依赖', tags: ['server'], project: 'agent-recall' },
+  { key: 'm02', type: 'architecture', content: '架构决策：服务端用 Fastify 5 加远端 Postgres，DATABASE_URL 必填', tags: ['server'], project: 'agent-recall' },
   { key: 'm03', type: 'architecture', content: '架构决策：向量库用 Qdrant，词法索引用 Meilisearch，嵌入走 DashScope', tags: ['retrieval'], project: 'agent-recall' },
   { key: 'm04', type: 'architecture', content: '架构决策：Web 前端 React 19 配 Vite 构建，路由集中在 src/routes.ts', tags: ['web'], project: 'agent-recall' },
   { key: 'm05', type: 'architecture', content: '架构决策：MCP server 通过 stdio 暴露 save 和 recall 两个工具', tags: ['mcp'], project: 'agent-recall' },
@@ -43,7 +43,7 @@ export const CORPUS: CorpusMemory[] = [
   { key: 'm12', type: 'preference', content: 'user prefers dark theme for all internal dashboards', tags: ['ui'] },
 
   // ---- bug ----
-  { key: 'm13', type: 'bug', content: 'bug: PGlite 不支持 PL/pgSQL 存储过程，迁移脚本要避开', tags: ['pglite'], project: 'agent-recall' },
+  { key: 'm13', type: 'bug', content: 'bug: 测试连远端 Postgres 时用隔离 schema，不要写入 public', tags: ['postgres'], project: 'agent-recall' },
   { key: 'm14', type: 'bug', content: 'bug: Meilisearch 的 filter 语法里字符串值必须用双引号', tags: ['retrieval'] },
   { key: 'm15', type: 'bug', content: 'bug: Qdrant points/query 的 filter 必须包在 must 数组里', tags: ['retrieval'] },
   { key: 'm16', type: 'bug', content: 'bug: Fastify inject 测试时 cookie 要手动拼 ar_session= 前缀', tags: ['testing'] },
@@ -75,7 +75,7 @@ export const CORPUS: CorpusMemory[] = [
 
   // ---- lesson ----
   { key: 'm36', type: 'lesson', content: '教训：不要把 API key 提交进仓库，曾经泄漏过一次 DashScope key', tags: ['security'] },
-  { key: 'm37', type: 'lesson', content: '教训：PGlite 数据目录测试时要放临时目录，避免污染本地数据', tags: ['testing'] },
+  { key: 'm37', type: 'lesson', content: '教训：自动化测试连远端 Postgres 时用隔离 schema，跑完删掉', tags: ['testing'] },
   { key: 'm38', type: 'lesson', content: '教训：RRF 的 k 值调小会让单路头部结果过度占优，保持 k=60', tags: ['retrieval'] },
   { key: 'm39', type: 'lesson', content: 'lesson: never trust a client-supplied user_id, always derive it from the session', tags: ['security'] },
   { key: 'm40', type: 'lesson', content: '教训：Meilisearch 写入任务是异步的，写完立刻查可能查不到', tags: ['retrieval'] },
@@ -83,7 +83,7 @@ export const CORPUS: CorpusMemory[] = [
 
 export const QUERIES: EvalQuery[] = [
   { key: 'q01', query: 'RRF', relevant: ['m01', 'm27', 'm38'] },
-  { key: 'q02', query: 'PGlite', relevant: ['m02', 'm13', 'm37'] },
+  { key: 'q02', query: '远端 Postgres', relevant: ['m02', 'm13', 'm37'] },
   { key: 'q03', query: 'pnpm', relevant: ['m06', 'm07', 'm19', 'm20'] },
   { key: 'q04', query: 'Meilisearch', relevant: ['m03', 'm14', 'm40'] },
   { key: 'q05', query: 'Qdrant', relevant: ['m03', 'm15', 'm30'] },

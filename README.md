@@ -1,10 +1,10 @@
 # agent-recall
 
-自托管的 agent 记忆。给 Claude Code、Codex CLI、OpenCode、pi，以及任何能说 MCP 的 coding agent。
+自托管的 agent 记忆服务。给 Claude Code、Codex CLI、OpenCode、pi，以及任何能说 MCP 的 coding agent。
 
 下次开会话，它还记得上次的架构决定、踩过的坑，以及你说过要记住的偏好。网页首页可以直接打开，不用登录，上面写着这个项目做什么、66 个工具分别是什么、怎么接上你的 agent。
 
-数据在你自己的机器上。默认数据库是内嵌的 PGlite，想换外部 Postgres、Meilisearch、Qdrant 时再配。
+记忆存在你配置的 Postgres 里。`DATABASE_URL` 必填，指向远端数据库。Meilisearch 和 Qdrant 按需再配。
 
 - [快速开始](#快速开始)
 - [接哪些 agent](#接哪些-agent)
@@ -98,7 +98,7 @@ node plugins/shared/drain.mjs
 
 ## 一次会话里发生什么
 
-上一场你定过：默认数据库用 PGlite，检索接 Meilisearch 和 Qdrant，令牌前缀是 `arm_`。这些被记成记忆。
+上一场你定过：默认数据库用远端 Postgres，检索接 Meilisearch 和 Qdrant，令牌前缀是 `arm_`。这些被记成记忆。
 
 下一场你问「召回的两路是怎么融合的」。SessionStart 和这条提问会调用 `POST /api/hooks/context`。服务器按问题召回，把裁剪过的上下文交回插件，插件写进宿主的上下文。你不用把上次的结论再贴一遍。
 
@@ -123,8 +123,8 @@ node plugins/shared/drain.mjs
             (apps/mcp,   │                  可选精排                  │
              token)      │        │                   │               │
                          │        ▼                   ▼               │
-  浏览器 ────cookie─────▶│      PGlite / Postgres (Drizzle)           │
-         (apps/web)      │      默认 ~/.agent-recall/pgdata           │
+  浏览器 ────cookie─────▶│           Postgres (Drizzle)               │
+         (apps/web)      │         DATABASE_URL 远端数据库            │
                          └────────────────────────────────────────────┘
 ```
 
@@ -132,7 +132,7 @@ node plugins/shared/drain.mjs
 
 - **MCP（`apps/mcp`）**。stdio，手写 JSON-RPC，运行时零依赖。向 agent 暴露 66 个 `memory_*` 工具，用 Bearer token 转发到服务器。少数工具在本机读写文件（压缩源文件、同步 MEMORY.md、导出 Obsidian）。
 - **插件（`plugins/`）**。四个宿主的 native 插件。负责自动召回注入和观察捕获。
-- **网页（`apps/web`）**。React（`@rabjs/react`）。首页公开。控制台要登录，用来管理记忆、令牌、MCP 客户端和设置。
+- **网页（`apps/web`）**。React（`@rabjs/react`）。首页公开。控制台要登录，用来管理记忆、会话、状态、关系、治理、令牌、MCP 客户端和设置。
 
 一条记忆包含 `content`、`origin`（web / agent / hook / import / summary）、`type`（fact / preference / pattern / architecture / bug / workflow / lesson）、`tags`、`project`、`sessionId`、`expiresAt`。
 
@@ -151,7 +151,7 @@ node plugins/shared/drain.mjs
 
 `memory_recall` 和 `POST /api/memories/recall`：Meilisearch 全文加 Qdrant 向量，RRF（k=60）融合。
 
-`memory_smart_search` 和 `POST /api/memories/smart-search`：更大的候选池。用户在设置里打开精排后，使用 DashScope `gte-rerank`。精排失败时退回 RRF 结果。API key 以 AES-256-GCM 加密落库，密钥在数据目录的上一级 `.secret`（默认 `~/.agent-recall/.secret`）。
+`memory_smart_search` 和 `POST /api/memories/smart-search`：更大的候选池。用户在设置里打开精排后，使用 DashScope `gte-rerank-v2`。精排失败时退回 RRF 结果。API key 以 AES-256-GCM 加密落库，主密钥是环境变量 `ENCRYPTION_KEY`。
 
 向量默认走 DashScope `qwen3-vl-embedding`，2560 维。没配 `QDRANT_URL` 时不做向量召回。没配 `MEILI_URL` 时不做全文召回。
 
@@ -289,8 +289,11 @@ node plugins/shared/drain.mjs
 |---|---|---|
 | `/` | 不用 | 说明：项目做什么、怎么启动、66 个工具。可按名字或用途筛选 |
 | `/login` | 不用 | 登录 / 注册 |
-| `/memories` | 要 | 筛选、搜索、富文本编辑、版本 diff、批量删除、导入导出、统计 |
-| `/sessions` | 要 | 会话列表和时间线 |
+| `/memories` | 要 | 筛选、召回、精排、注入预览、按筛选删除、分享、相关记忆、草图转正、版本 diff、导入导出 |
+| `/sessions` | 要 | 会话列表、时间线、结晶 |
+| `/state` | 要 | 简报，以及行动、信号、哨兵、槽位、档案、租约、例程、检查点 |
+| `/graph` | 要 | 由记忆推导出的关系图 |
+| `/ops` | 要 | 诊断、自愈、合并、反思、快照、分享订阅、Mesh、审计 |
 | `/tokens` | 要 | access token。明文只在创建时出现 |
 | `/mcp` | 要 | MCP 客户端。创建时签发令牌并生成配置 JSON |
 | `/settings` | 要 | 精排、自动遗忘天数、召回历史 |
@@ -357,8 +360,9 @@ cp plugins/pi/index.ts ~/.pi/agent/extensions/agent-recall/index.ts
 |---|---|---|
 | `PORT` | `8787` | 监听端口 |
 | `HOST` | `127.0.0.1` | 监听地址 |
-| `DATA_DIR` | `~/.agent-recall/pgdata` | PGlite 数据目录 |
-| `DATABASE_URL` | 空，用 PGlite | 设置后改用外部 Postgres |
+| `DATABASE_URL` | 必填 | Postgres 连接串。没有内嵌数据库 |
+| `ENCRYPTION_KEY` | 必填 | 加密每个用户的精排 API Key。测试和生产用不同的值。丢掉之后已保存的 Key 解不开 |
+| `DATABASE_SCHEMA` | 空 | 设置后表建在这个 schema。测试使用，日常运行不要设 |
 | `MEILI_URL` / `MEILI_API_KEY` / `MEILI_INDEX` | 空 / 空 / `memories` | Meilisearch。URL 为空则关闭全文 |
 | `QDRANT_URL` / `QDRANT_API_KEY` / `QDRANT_COLLECTION` | 空 / 空 / `memories` | Qdrant。URL 为空则关闭向量 |
 | `EMBEDDING_API_KEY` | 空 | 向量服务密钥 |
@@ -370,11 +374,9 @@ cp plugins/pi/index.ts ~/.pi/agent/extensions/agent-recall/index.ts
 | `WEB_DIST` | 空 | 网页构建目录。生产且 `NODE_ENV=production` 时默认 `apps/web/dist` |
 | `COOKIE_SECURE` | `false` | `true` 时 session cookie 只走 HTTPS |
 
-加密密钥不在 `DATA_DIR` 里面，而在它的上一级：默认 `~/.agent-recall/.secret`，权限 `0600`。
-
 `apps/mcp` 读 `AGENT_RECALL_URL` 和 `AGENT_RECALL_TOKEN`。
 
-网页用 httpOnly cookie（argon2id）。Agent 和插件用 `Authorization: Bearer arm_...`（sha256 存库）。令牌和 MCP 客户端的管理接口只接受网页 session。Hook 接口只接受 Bearer token。
+网页用 httpOnly cookie（argon2id）。Agent 和插件用 `Authorization: Bearer arm_...`（sha256 存库）。令牌和 MCP 客户端的管理接口只接受网页 session。`POST /api/hooks/events` 和 `POST /api/hooks/context` 只接受 Bearer token。控制台预览注入走 `POST /api/memories/context`，session 和 token 都可以，裁剪规则与钩子注入相同。
 
 ---
 
@@ -390,7 +392,7 @@ cp plugins/pi/index.ts ~/.pi/agent/extensions/agent-recall/index.ts
 | `GET /api/auth/me` | 两者 | 当前用户 |
 | `GET` `POST /api/memories`，`GET` `PATCH` `DELETE /api/memories/:id` | 两者 | 记忆 CRUD。PATCH 产生新版本 |
 | `GET /api/memories/:id/versions` | 两者 | 版本链 |
-| `POST /api/memories/recall`、`/smart-search` | 两者 | 检索 |
+| `POST /api/memories/recall`、`/smart-search`、`/context` | 两者 | 检索，以及与钩子相同的注入预览 |
 | `GET /api/memories/recall-logs`、`/stats` | 两者 | 召回日志、统计 |
 | `GET /api/memories/export`，`POST /api/memories/import` | 两者 | 导出、导入 |
 | `POST /api/memories/batch-forget`、`/auto-forget`、`/consolidate` | 两者 | 批量删除、自动遗忘、合并近似重复 |
@@ -417,13 +419,14 @@ cp plugins/pi/index.ts ~/.pi/agent/extensions/agent-recall/index.ts
 
 ```
 apps/
-  server/    Fastify + Drizzle + PGlite：API、写入治理、检索
+  server/    Fastify + Drizzle + Postgres：API、写入治理、检索
   mcp/       stdio MCP（手写 JSON-RPC）
   web/       React 网页（@rabjs/react + Vite）
 packages/
   dto/       共享 zod schema
 plugins/     四端插件 + shared client / spool
 eval/        检索管道回归
+e2e/         服务与 MCP 工具端到端（不测网页）
 design/      设计稿
 ```
 
@@ -433,6 +436,7 @@ pnpm dev                                  # server + web
 pnpm --filter @agent-recall/server dev    # 只起 server
 pnpm --filter @agent-recall/web dev       # 只起 web，端口 5178
 pnpm test                                 # server 测试（vitest）
+pnpm e2e                                  # 临时库 + 固定测试账号，校验服务和 MCP
 pnpm typecheck
 pnpm build
 pnpm eval                                 # 写入 eval/results/<date>.md

@@ -18,7 +18,7 @@ pnpm eval        # 仓库根目录
 ## 组成部分
 
 - `corpus.ts` — 40 条模拟编程 agent 记忆（type 覆盖 architecture/preference/bug/workflow/pattern/fact/lesson，中英文混合）+ 18 个标注查询，每个查询标注应命中的记忆 key。
-- `run.ts` — runner：protocol-standin 起内存版 Meilisearch/Qdrant/DashScope，`openTestApp` 起内存服务（PGlite），注册用户 + 建 Bearer token，灌语料，逐查询跑两种策略并计算指标。
+- `run.ts` — runner：protocol-standin 起内存版 Meilisearch/Qdrant/DashScope，`openTestApp` 连远端 Postgres 的隔离 schema，注册用户 + 建 Bearer token，灌语料，逐查询跑两种策略并计算指标。
 - `results/` — 历次评测分数卡。
 
 ## 指标定义

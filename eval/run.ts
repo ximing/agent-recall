@@ -1,7 +1,7 @@
 /**
  * 召回质量评测 runner（P3）。
  *
- * 流程：protocol-standin 起内存版 Meili/Qdrant/DashScope → openTestApp 起内存服务
+ * 流程：protocol-standin 起内存版 Meili/Qdrant/DashScope → openTestApp 连远端 Postgres 的隔离 schema
  * → 注册用户 + 建 Bearer token → 灌入语料 → 对每个标注查询分别跑
  *   A: POST /api/memories/recall        （rrf，settings 默认关精排）
  *   B: POST /api/memories/smart-search  （rrf+rerank，settings 开启精排）
@@ -108,7 +108,7 @@ function renderMarkdown(date: string, reports: StrategyReport[]): string {
     '',
     '## 方法',
     '',
-    '- 环境：内存 PGlite + protocol-standin（内存版 Meilisearch/Qdrant/DashScope 嵌入与精排），无外部服务。',
+    '- 环境：远端 Postgres 的隔离 schema + protocol-standin（内存版 Meilisearch/Qdrant/DashScope 嵌入与精排）。',
     `- 语料：${CORPUS.length} 条编程 agent 记忆（type 覆盖 architecture/preference/bug/workflow/pattern/fact/lesson，中英文混合），${QUERIES.length} 个标注查询。`,
     '- 策略对比：',
     '  - `rrf`：POST /api/memories/recall，词法+向量两路召回，RRF k=60 融合，精排关闭。',
@@ -156,7 +156,6 @@ async function main(): Promise<void> {
   const standin = await startProtocolStandin();
   const dataDir = await makeDataDir();
   const config = testConfig({
-    dataDir,
     MEILI_URL: standin.url,
     MEILI_API_KEY: 'eval-meili',
     QDRANT_URL: standin.url,
