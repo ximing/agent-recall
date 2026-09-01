@@ -1,0 +1,17 @@
+.git
+node_modules
+**/node_modules
+dist
+**/dist
+.env
+.env.*
+**/.env
+**/.env.*
+.agent-debug.md
+*.log
+.DS_Store
+coverage
+.vite
+design
+e2e
+eval

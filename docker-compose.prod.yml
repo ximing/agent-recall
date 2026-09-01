@@ -1,0 +1,47 @@
+# Production on home-app (11022). One GHCR image serves the API and the web app.
+# Entry nginx (39.96.159.212) proxies https://recall.aimo.plus to :13007.
+#
+#   mkdir -p /root/apps/agent-recall
+#   # .env stays on the server. Do not commit it.
+#   docker compose -f docker-compose.prod.yml pull
+#   docker compose -f docker-compose.prod.yml up -d
+
+name: agent-recall
+
+services:
+  server:
+    image: ghcr.io/ximing/agent-recall:${AGENT_RECALL_IMAGE_TAG:-stable}
+    container_name: agent-recall
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      APP_ENV: production
+      PORT: "8787"
+      HOST: 0.0.0.0
+      HTTP_PROXY: ""
+      HTTPS_PROXY: ""
+      ALL_PROXY: ""
+      http_proxy: ""
+      https_proxy: ""
+      all_proxy: ""
+    ports:
+      - "${AGENT_RECALL_BIND:-0.0.0.0}:${AGENT_RECALL_PORT:-13007}:8787"
+    restart: unless-stopped
+    pull_policy: always
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8787/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 25s
