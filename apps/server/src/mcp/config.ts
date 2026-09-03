@@ -1,17 +1,13 @@
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+/** npm name users install. The publish token belongs to yeanzhi; @agent-recall is not on that account. */
+export const MCP_NPM_PACKAGE = '@yeanzhi/agent-recall-mcp';
 
-export function mcpEntryPath(): string {
-  return path.resolve(fileURLToPath(new URL('../../../mcp/dist/index.js', import.meta.url)));
-}
-
-export function renderMcpConfig(baseUrl: string, secret: string, entry = mcpEntryPath()): string {
+export function renderMcpConfig(baseUrl: string, secret: string, npmPackage = MCP_NPM_PACKAGE): string {
   return JSON.stringify(
     {
       mcpServers: {
         'agent-recall': {
-          command: 'node',
-          args: [entry],
+          command: 'npx',
+          args: ['-y', npmPackage],
           env: {
             AGENT_RECALL_URL: baseUrl,
             AGENT_RECALL_TOKEN: secret,

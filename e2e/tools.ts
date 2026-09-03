@@ -1,6 +1,6 @@
 /**
- * MCP 工具面合同。名字与 apps/mcp/src/index.ts 的 TOOLS / CORE / STANDARD 保持一致。
- * tools/list 一旦增删，这里要一起改，e2e 才会失败。
+ * MCP 工具面合同。服务端工具在 apps/server/src/mcp/bridge.ts，
+ * 本机文件工具在 apps/mcp/src/index.ts。tools/list 一旦增删，这里要一起改。
  */
 
 export const CORE_TOOLS = [

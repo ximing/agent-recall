@@ -44,18 +44,14 @@ pnpm dev
 
 1. 打开 http://127.0.0.1:5178 读说明。点「登录」注册账号。
 2. 在「MCP 客户端」注册一个客户端。页面给出可粘贴的配置，令牌只显示这一次。也可以先在「令牌」页单独建一把 `arm_` 开头的 access token。
-3. 构建 MCP 入口并把它交给 agent：
-
-```bash
-pnpm --filter @agent-recall/mcp build
-```
+3. 把「MCP 客户端」页给出的配置贴进 agent。本机要有 Node 22。`npx` 会拉取已发布的包，不需要仓库里的 `apps/mcp/dist`：
 
 ```json
 {
   "mcpServers": {
     "agent-recall": {
-      "command": "node",
-      "args": ["/path/to/agent-recall/apps/mcp/dist/index.js"],
+      "command": "npx",
+      "args": ["-y", "@yeanzhi/agent-recall-mcp"],
       "env": {
         "AGENT_RECALL_URL": "http://127.0.0.1:8787",
         "AGENT_RECALL_TOKEN": "arm_..."
@@ -86,7 +82,7 @@ NODE_ENV=production pnpm start:prod
 | Codex CLI | `plugins/codex/`，同一套 4 个 hook，再加 MCP | 载荷和 Claude Code 兼容 |
 | OpenCode | `plugins/opencode/`，1.x 和 2.x | 注入进系统提示词；另有 `/recall` |
 | pi | `plugins/pi/` | 生命周期钩子，外加 `memory_recall` 工具 |
-| 其他 MCP 客户端 | 只配上面的 stdio MCP | 66 个 `memory_*` 工具，没有自动注入 |
+| 其他 MCP 客户端 | 只配上面的 stdio MCP（`npx -y @yeanzhi/agent-recall-mcp`） | 66 个 `memory_*` 工具，没有自动注入 |
 
 插件每次请求 2 秒超时，失败写入 `~/.agent-recall/spool/events.jsonl`。补投：
 
@@ -130,7 +126,7 @@ node plugins/shared/drain.mjs
 
 三个接入面：
 
-- **MCP（`apps/mcp`）**。stdio，手写 JSON-RPC，运行时零依赖。向 agent 暴露 66 个 `memory_*` 工具，用 Bearer token 转发到服务器。少数工具在本机读写文件（压缩源文件、同步 MEMORY.md、导出 Obsidian）。
+- **MCP（`apps/mcp`，发布为 `@yeanzhi/agent-recall-mcp`）**。stdio，手写 JSON-RPC，运行时零依赖。宿主拉起这个包。包向 `GET /api/mcp/tools` 要工具目录，用 `POST /api/mcp/tools/call` 执行。服务端新增不碰本机文件的工具时，不用发新的 npm 包。压缩源文件、同步 MEMORY.md、导出 Obsidian 这三件留在包里，改它们才需要发布。
 - **插件（`plugins/`）**。四个宿主的 native 插件。负责自动召回注入和观察捕获。
 - **网页（`apps/web`）**。React（`@rabjs/react`）。首页公开。控制台要登录，用来管理记忆、会话、状态、关系、治理、令牌、MCP 客户端和设置。
 
@@ -374,7 +370,7 @@ cp plugins/pi/index.ts ~/.pi/agent/extensions/agent-recall/index.ts
 | `WEB_DIST` | 空 | 网页构建目录。生产且 `NODE_ENV=production` 时默认 `apps/web/dist` |
 | `COOKIE_SECURE` | `false` | `true` 时 session cookie 只走 HTTPS |
 
-`apps/mcp` 读 `AGENT_RECALL_URL` 和 `AGENT_RECALL_TOKEN`。
+`apps/mcp` 读 `AGENT_RECALL_URL`、`AGENT_RECALL_TOKEN` 和 `AGENT_RECALL_MCP_PROFILE`（`core` / `standard` / `full`，默认 `full`）。档位由本机包传给服务器，服务器只返回该档位的工具；三个本机文件工具只在 `full`。
 
 网页用 httpOnly cookie（argon2id）。Agent 和插件用 `Authorization: Bearer arm_...`（sha256 存库）。令牌和 MCP 客户端的管理接口只接受网页 session。`POST /api/hooks/events` 和 `POST /api/hooks/context` 只接受 Bearer token。控制台预览注入走 `POST /api/memories/context`，session 和 token 都可以，裁剪规则与钩子注入相同。
 
@@ -404,6 +400,8 @@ cp plugins/pi/index.ts ~/.pi/agent/extensions/agent-recall/index.ts
 | `POST /api/hooks/context` | token | `{ query, tokenBudget?, project? }`，返回可注入的文本 |
 | `GET` `POST /api/tokens`，`POST /api/tokens/:id/revoke` | cookie | access token |
 | `GET` `POST /api/mcp/clients`，`POST /api/mcp/clients/:id/revoke` | cookie | MCP 客户端 |
+| `GET /api/mcp/tools` | 两者 | 服务端工具目录。`?profile=core\|standard\|full`，不含本机文件工具 |
+| `POST /api/mcp/tools/call` | 两者 | 执行一个服务端工具。`{ name, arguments, profile? }` |
 | `GET` `PUT /api/settings` | 两者 | 精排、自动遗忘等 |
 | `GET` `PUT` `DELETE /api/kv/:namespace/:key`，`GET /api/kv/:namespace`，`POST .../append` | 两者 | KV：槽位、信号、档案、租约 |
 | `GET /api/graph/query`，`GET /api/memories/:id/relations` | 两者 | 关系图 |
@@ -420,7 +418,7 @@ cp plugins/pi/index.ts ~/.pi/agent/extensions/agent-recall/index.ts
 ```
 apps/
   server/    Fastify + Drizzle + Postgres：API、写入治理、检索
-  mcp/       stdio MCP（手写 JSON-RPC）
+  mcp/       stdio MCP。转发服务端工具，本机只保留文件工具
   web/       React 网页（@rabjs/react + Vite）
 packages/
   dto/       共享 zod schema

@@ -17,7 +17,7 @@ const McpPage = observer(function McpPage() {
       <header className="page-head">
         <div>
           <h1>MCP 客户端</h1>
-          <p className="desc">注册一个客户端，把服务地址和令牌写进本地配置，代理即可读写记忆。</p>
+          <p className="desc">注册一个客户端，把配置贴进本机 MCP。npx 拉起官方包：本机文件工具在本地执行，其余工具向这台服务器转发。</p>
         </div>
       </header>
 

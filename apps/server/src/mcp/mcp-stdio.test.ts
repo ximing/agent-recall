@@ -291,6 +291,20 @@ describe('mcp stdio', () => {
     }
   });
 
+  it('serves the server tool catalog without local file tools', async () => {
+    const created = await call(app, 'POST', '/api/tokens', { cookie, payload: { name: 'catalog' } });
+    const secret = String(created.body?.secret);
+    const listed = await call(app, 'GET', '/api/mcp/tools?profile=full', { token: secret });
+    expect(listed.status).toBe(200);
+    const names = ((listed.body as { tools?: { name: string }[] }).tools ?? []).map((tool) => tool.name);
+    expect(names).toHaveLength(63);
+    expect(names).not.toContain('memory_compress_file');
+    expect(names).not.toContain('memory_claude_bridge_sync');
+    expect(names).not.toContain('memory_obsidian_export');
+    const core = await call(app, 'GET', '/api/mcp/tools?profile=core', { token: secret });
+    expect((core.body as { tools?: unknown[] }).tools).toHaveLength(12);
+  });
+
   it('narrows the tool surface with AGENT_RECALL_MCP_PROFILE=core and rejects hidden tools', async () => {
     const created = await call(app, 'POST', '/api/tokens', { cookie, payload: { name: 'stdio-profile' } });
     const secret = String(created.body?.secret);

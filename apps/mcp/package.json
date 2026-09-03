@@ -1,14 +1,30 @@
 {
   "name": "@agent-recall/mcp",
-  "version": "0.3.0",
-  "private": true,
+  "version": "0.4.0",
+  "description": "stdio MCP entry for agent-recall. Forwards server tools and runs local file tools on the user's computer.",
+  "private": false,
   "type": "module",
   "bin": {
-    "agent-recall-mcp": "./src/index.ts"
+    "agent-recall-mcp": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ximing/agent-recall.git",
+    "directory": "apps/mcp"
   },
   "scripts": {
     "start": "tsx src/index.ts",
     "build": "tsc -p tsconfig.build.json",
+    "prepublishOnly": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {

@@ -1,0 +1,48 @@
+name: Publish MCP package
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "apps/mcp/**"
+      - ".github/workflows/publish-mcp.yml"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm --filter @agent-recall/mcp build
+
+      - name: Publish when this version is not on npm
+        working-directory: apps/mcp
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          PUBLISHED_NAME: "@yeanzhi/agent-recall-mcp"
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view "${PUBLISHED_NAME}@${VERSION}" version >/dev/null 2>&1; then
+            echo "${PUBLISHED_NAME}@${VERSION} is already on npm"
+            exit 0
+          fi
+          node --input-type=module -e 'import { readFileSync, writeFileSync } from "node:fs"; const pkg = JSON.parse(readFileSync("package.json", "utf8")); pkg.name = process.env.PUBLISHED_NAME; writeFileSync("package.json", JSON.stringify(pkg, null, 2) + "\n");'
+          npm publish --access public --ignore-scripts --userconfig "${GITHUB_WORKSPACE}/.npmrc"
