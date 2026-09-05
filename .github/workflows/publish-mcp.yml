@@ -45,4 +45,4 @@ jobs:
             exit 0
           fi
           node --input-type=module -e 'import { readFileSync, writeFileSync } from "node:fs"; const pkg = JSON.parse(readFileSync("package.json", "utf8")); pkg.name = process.env.PUBLISHED_NAME; writeFileSync("package.json", JSON.stringify(pkg, null, 2) + "\n");'
-          npm publish --access public --ignore-scripts --userconfig "${GITHUB_WORKSPACE}/.npmrc"
+          npm publish --access public --ignore-scripts
