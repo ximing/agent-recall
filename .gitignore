@@ -5,6 +5,7 @@ dist
 .env.*
 !.env.example
 .agent-debug.md
+docs/deploy.md
 *.log
 .DS_Store
 coverage
