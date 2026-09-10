@@ -7,33 +7,52 @@ import { GuideService } from './guide.service';
 import { RecallStage } from './RecallStage';
 import './landing.css';
 
-const TERMINAL_HTML = `<span class="c"># 1. 起服务</span>
-<span class="p">$</span> pnpm install && pnpm dev
-<span class="c">#  web → http://127.0.0.1:5178   api → http://127.0.0.1:8787</span>
-
-<span class="c"># 2. 构建 MCP 入口</span>
-<span class="p">$</span> pnpm --filter @agent-recall/mcp build
-
-<span class="c"># 3. 贴进 agent 的 MCP 配置</span>
-{
-  <span class="k">"mcpServers"</span>: {
-    <span class="k">"agent-recall"</span>: {
-      <span class="k">"command"</span>: <span class="s">"node"</span>,
-      <span class="k">"args"</span>: [<span class="s">".../apps/mcp/dist/index.js"</span>],
-      <span class="k">"env"</span>: {
-        <span class="k">"AGENT_RECALL_URL"</span>: <span class="s">"http://127.0.0.1:8787"</span>,
-        <span class="k">"AGENT_RECALL_TOKEN"</span>: <span class="s">"arm_..."</span>
-      }
-    }
-  }
+function pageOrigin(): string {
+  if (typeof window === 'undefined') return '';
+  return window.location.origin;
 }
 
-<span class="p">$</span> <span class="cursor"></span>`;
+function ConnectSample({ origin }: { origin: string }) {
+  const url = origin || '当前网页的地址';
+  return (
+    <pre>
+      <span className="c"># 接入点就是当前网页的主机</span>
+      {'\n'}
+      {'{\n  '}
+      <span className="k">&quot;mcpServers&quot;</span>
+      {': {\n    '}
+      <span className="k">&quot;agent-recall&quot;</span>
+      {': {\n      '}
+      <span className="k">&quot;command&quot;</span>
+      {': '}
+      <span className="s">&quot;npx&quot;</span>
+      {',\n      '}
+      <span className="k">&quot;args&quot;</span>
+      {': ['}
+      <span className="s">&quot;-y&quot;</span>
+      {', '}
+      <span className="s">&quot;@yeanzhi/agent-recall-mcp&quot;</span>
+      {'],\n      '}
+      <span className="k">&quot;env&quot;</span>
+      {': {\n        '}
+      <span className="k">&quot;AGENT_RECALL_URL&quot;</span>
+      {': '}
+      <span className="s">{`"${url}"`}</span>
+      {',\n        '}
+      <span className="k">&quot;AGENT_RECALL_TOKEN&quot;</span>
+      {': '}
+      <span className="s">&quot;arm_...&quot;</span>
+      {'\n      }\n    }\n  }\n}\n'}
+      <span className="c"># 插件的 AGENT_RECALL_URL 也填这个地址</span>
+    </pre>
+  );
+}
 
 const GuidePage = observer(function GuidePage() {
   const auth = useService(AuthService);
   const guide = useService(GuideService);
   const filtering = guide.query.trim().length > 0;
+  const origin = pageOrigin();
 
   const entry =
     auth.ready && auth.user ? (
@@ -152,11 +171,12 @@ const GuidePage = observer(function GuidePage() {
               </div>
               <h3>主动存取</h3>
               <p>
-                stdio MCP 服务把记忆库暴露成 {TOOL_COUNT} 个 memory_* 工具。Agent
-                用它们保存事实、按问题召回、改出新版本、忘掉、整理。MCP 进程只转发 HTTP，存储和检索都在服务器上。
+                stdio MCP 把记忆库暴露成 {TOOL_COUNT} 个 memory_* 工具。Agent
+                用来保存、召回、改出版本、忘掉和整理。MCP 进程把调用转发到这台服务。压缩文件、同步本地 MEMORY.md、导出
+                Obsidian 这三件在代理本机完成。
               </p>
               <div className="carrier">
-                载体 · <b>@agent-recall/mcp</b>
+                载体 · <b>@yeanzhi/agent-recall-mcp</b>
               </div>
             </div>
             <div className="lane">
@@ -168,8 +188,8 @@ const GuidePage = observer(function GuidePage() {
               </div>
               <h3>人来看</h3>
               <p>
-                登录之后是控制台：记忆的筛选、搜索、编辑和版本对比，会话时间线，访问令牌，MCP
-                客户端配置，以及精排和自动遗忘。令牌和客户端配置只在网页里签发。
+                登录之后是控制台：记忆的筛选、召回、精排、分享和版本，会话时间线与结晶，以及状态、关系、治理。令牌和
+                MCP 客户端配置只在网页里签发。
               </p>
               <div className="carrier">
                 载体 · <b>这个网页</b>
@@ -217,7 +237,7 @@ const GuidePage = observer(function GuidePage() {
               <div className="p-node violet p-mid">
                 <h4>精排</h4>
                 <div className="sub">可选 · 失败退回融合结果</div>
-                <p>设置里打开，候选更多，给出精排分数。</p>
+                <p>设置里打开后，融合候选再交给 rerank。没开或失败时保持融合顺序。</p>
               </div>
               <div className="p-link" />
               <div className="p-node end p-final">
@@ -228,10 +248,10 @@ const GuidePage = observer(function GuidePage() {
             </div>
             <div className="pipeline-note">
               <div className="n">
-                <b>缺一路也能跑。</b>不配 Meilisearch 或 Qdrant 时，缺的那一路自动跳过，关系库里的检索继续可用。
+                <b>缺一路也能跑。</b>不配 Meilisearch 或 Qdrant 时，缺的那一路自动跳过，另一路继续召回。两路都没有时，按条件翻列表仍然可用。
               </div>
               <div className="n">
-                <b>去重</b>在同一内容短时间窗口内生效，近重复返回已有记录。注入只用来源为 web、agent、summary、import
+                <b>去重</b>在五分钟内对相同内容生效，近重复返回已有记录。注入只用来源为 web、agent、summary、import
                 的记忆。
               </div>
               <div className="n">
@@ -247,7 +267,7 @@ const GuidePage = observer(function GuidePage() {
         <div className="stats">
           <div className="stat">
             <div className="num">{TOOL_COUNT}</div>
-            <div className="lbl">个 MCP 工具，写入 / 召回 / 浏览 / 整理</div>
+            <div className="lbl">个 MCP 工具，写入、召回、状态、整理共八组</div>
           </div>
           <div className="stat">
             <div className="num">4</div>
@@ -276,41 +296,44 @@ const GuidePage = observer(function GuidePage() {
               <div className="sec-head" style={{ marginBottom: 24 }}>
                 <span className="sec-index">/ 怎么用</span>
                 <h2>
-                  四条命令，
+                  接入点就是
                   <br />
-                  让它开始记。
+                  你正在看的这个地址。
                 </h2>
-                <p>需要 Node.js 22 和 pnpm 10。令牌只在网页里签发，只显示一次。</p>
+                <p>
+                  代理和插件连当前网页的主机{origin ? <> <code>{origin}</code></> : null}
+                  。令牌只在网页里签发，只显示一次。
+                </p>
               </div>
               <ol className="steps">
                 <li>
                   <div>
-                    <h4>启动服务和网页</h4>
+                    <h4>认准这个主机</h4>
                     <p>
-                      仓库根目录 <code>pnpm install && pnpm dev</code>，网页在 5178，接口在 8787。
+                      地址栏里的主机就是服务地址。MCP 和插件的 <code>AGENT_RECALL_URL</code> 都填它。
                     </p>
                   </div>
                 </li>
                 <li>
                   <div>
-                    <h4>注册，签发一把令牌</h4>
+                    <h4>登录，签发一把令牌</h4>
                     <p>
-                      登录后进「MCP 客户端」注册客户端，拿到可粘贴的配置和一把 <code>arm_</code> 令牌。
+                      进「MCP 客户端」注册客户端，或在「令牌」里建一把 <code>arm_</code> 令牌。
                     </p>
                   </div>
                 </li>
                 <li>
                   <div>
-                    <h4>构建 MCP 入口，交给 agent</h4>
+                    <h4>把地址和令牌交给 agent</h4>
                     <p>
-                      <code>pnpm --filter @agent-recall/mcp build</code>，把右边的配置贴进 agent。
+                      本机的 stdio MCP 只负责转发。环境变量里的地址用这个主机，令牌用刚签发的那把。插件同样指向这里。
                     </p>
                   </div>
                 </li>
                 <li>
                   <div>
                     <h4>让它存，再让它找</h4>
-                    <p>说「记住我们用远端 Postgres 做默认数据库」。下一场会话，它会自己想起来。</p>
+                    <p>说「记住我们用 Postgres 做数据库」。下一场会话，它会自己想起来。</p>
                   </div>
                 </li>
               </ol>
@@ -322,10 +345,9 @@ const GuidePage = observer(function GuidePage() {
                   <i />
                   <i />
                 </span>
-                <span>~/agent-recall — zsh</span>
+                <span>MCP 配置</span>
               </div>
-              {/* 静态展示内容，非用户输入 */}
-              <pre dangerouslySetInnerHTML={{ __html: TERMINAL_HTML }} />
+              <ConnectSample origin={origin} />
             </div>
           </div>
         </section>
