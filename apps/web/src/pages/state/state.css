@@ -15,6 +15,7 @@
 }
 .state-nav button {
   display: flex;
+  width: 100%;
   align-items: center;
   gap: 9px;
   border: none;
