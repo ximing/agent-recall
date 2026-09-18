@@ -2,7 +2,7 @@ import { bindServices, observer, useService } from '@rabjs/react';
 import { Link } from 'react-router';
 import { ROUTES } from '@/routes';
 import { AuthService } from '@/services/auth.service';
-import { STARTER, TOOL_COUNT } from './catalog';
+import { STARTER, TOOL_COUNT, toolTier } from './catalog';
 import { GuideService } from './guide.service';
 import { RecallStage } from './RecallStage';
 import './landing.css';
@@ -361,7 +361,10 @@ const GuidePage = observer(function GuidePage() {
               <br />
               日常只用这一小把。
             </h2>
-            <p>全部由 MCP 暴露。写入与遗忘、召回、浏览、整理，按场景分组，下面可以按名字和用途筛选。</p>
+            <p>
+              全部由 MCP 暴露，按场景分组。档位是最小可见面：core 12 个，三档都有；standard 再加 13 个，一共 25；full
+              是全部 {TOOL_COUNT} 个。可以按名字、用途或 core / standard / full 筛选。
+            </p>
           </div>
           <div className="tools-panel">
             <div className="tools-search">
@@ -372,7 +375,7 @@ const GuidePage = observer(function GuidePage() {
               <input
                 type="search"
                 aria-label="筛选工具"
-                placeholder="按名字或用途筛选，例如 recall"
+                placeholder="按名字、用途或档位筛选，例如 core"
                 value={guide.query}
                 onChange={(event) => guide.setQuery(event.target.value)}
               />
@@ -384,7 +387,10 @@ const GuidePage = observer(function GuidePage() {
                   <div className="tool-row" key={tool.name}>
                     <code>{tool.name}</code>
                     <p>{tool.summary}</p>
-                    <span className="tag">常用</span>
+                    <span className="tool-marks">
+                      <span className={`tier tier-${toolTier(tool.name)}`}>{toolTier(tool.name)}</span>
+                      <span className="tag">常用</span>
+                    </span>
                   </div>
                 ))}
             {guide.groups.length === 0 ? (
@@ -401,7 +407,10 @@ const GuidePage = observer(function GuidePage() {
                       <div className="tool-row" key={tool.name}>
                         <code>{tool.name}</code>
                         <p>{tool.summary}</p>
-                        <span className="tag">{group.title}</span>
+                        <span className="tool-marks">
+                          <span className={`tier tier-${toolTier(tool.name)}`}>{toolTier(tool.name)}</span>
+                          <span className="tag">{group.title}</span>
+                        </span>
                       </div>
                     ))}
                   </section>

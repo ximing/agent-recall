@@ -1,6 +1,46 @@
+export type ToolTier = 'core' | 'standard' | 'full';
+
 export interface GuideTool {
   name: string;
   summary: string;
+}
+
+/** 最小可见档。standard 含 core，full 含前两档。名单与 e2e/tools.ts 一致。 */
+const CORE_NAMES = new Set([
+  'memory_save',
+  'memory_remember',
+  'memory_recall',
+  'memory_smart_search',
+  'memory_context',
+  'memory_list',
+  'memory_get',
+  'memory_update',
+  'memory_forget',
+  'memory_stats',
+  'memory_lesson_save',
+  'memory_lesson_recall',
+]);
+
+const STANDARD_NAMES = new Set([
+  'memory_sessions',
+  'memory_session_timeline',
+  'memory_versions',
+  'memory_export',
+  'memory_import',
+  'memory_batch_forget',
+  'memory_auto_forget',
+  'memory_checkpoint',
+  'memory_sketch_create',
+  'memory_sketch_promote',
+  'memory_crystallize',
+  'memory_snapshot_create',
+  'memory_governance_delete',
+]);
+
+export function toolTier(name: string): ToolTier {
+  if (CORE_NAMES.has(name)) return 'core';
+  if (STANDARD_NAMES.has(name)) return 'standard';
+  return 'full';
 }
 
 export interface GuideGroup {
@@ -136,6 +176,14 @@ export const TOOL_GROUPS: readonly GuideGroup[] = [
 ];
 
 export const TOOL_COUNT = TOOL_GROUPS.reduce((count, group) => count + group.tools.length, 0);
+
+const listedNames = TOOL_GROUPS.flatMap((group) => group.tools.map((tool) => tool.name));
+const tierCount = (tier: ToolTier) => listedNames.filter((name) => toolTier(name) === tier).length;
+if (listedNames.length !== 66 || tierCount('core') !== 12 || tierCount('standard') !== 13) {
+  throw new Error(
+    `tool tiers drifted: ${String(listedNames.length)} tools, core ${String(tierCount('core'))}, standard ${String(tierCount('standard'))}`,
+  );
+}
 
 const BY_NAME = new Map(TOOL_GROUPS.flatMap((group) => group.tools.map((tool) => [tool.name, tool] as const)));
 
