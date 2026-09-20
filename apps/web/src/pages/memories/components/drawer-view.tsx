@@ -53,7 +53,7 @@ export const DrawerView = observer(function DrawerView() {
         ) : null}
         <div className="drawer-extra">
           <p style={{ fontWeight: 500 }}>分享给队友</p>
-          <p className="composer-hint">复制一份到对方的库，并打上 shared 标签。隐私片段会先被抹掉。</p>
+          <p className="composer-hint">发送邀请。对方接受后才会复制到对方的库，并打上 shared 标签。隐私片段会先被抹掉。</p>
           <form
             style={{ display: 'flex', gap: 8, marginTop: 10 }}
             onSubmit={(event) => {

@@ -25,7 +25,15 @@ import {
 import { autoForget, batchForget, exportMemories, importMemories, memoryStats } from './governance.js';
 import { createSessionSummary, listSessions, sessionTimeline } from './sessions.js';
 import { buildInjectedContext } from './context.js';
-import { consolidateMemories, reflectMemories, sharedFeed, shareMemory } from './ops.js';
+import {
+  acceptShare,
+  consolidateMemories,
+  listIncomingShares,
+  reflectMemories,
+  rejectShare,
+  sharedFeed,
+  shareMemory,
+} from './ops.js';
 import { listRecallLogs } from './recall-log.js';
 
 function parseListQuery(req: FastifyRequest): { filter?: MemoryFilter; limit?: number; offset?: number } {
@@ -119,13 +127,29 @@ export function registerMemoryRoutes(app: FastifyInstance): void {
     return autoForget(deps(), actor.userId, body.dryRun ?? false);
   });
 
-  /** 团队共享：把记忆清洗后复制到目标用户库（eventId 幂等） */
+  /** 团队共享：只发邀请。对方接受后才复制（eventId 幂等） */
   app.post('/api/memories/:id/share', { preHandler: [app.authenticate] }, async (req) => {
     const actor = requireActor(req);
     const { id } = req.params as { id: string };
     const input = shareSchema.parse(req.body);
-    await shareMemory(deps(), actor.userId, id, input.email);
-    return { shared: true as const };
+    return shareMemory(deps(), actor.userId, id, input.email);
+  });
+
+  app.get('/api/shares/incoming', { preHandler: [app.authenticate] }, async (req) => {
+    const actor = requireActor(req);
+    return { invites: await listIncomingShares(deps(), actor.userId) };
+  });
+
+  app.post('/api/shares/:id/accept', { preHandler: [app.authenticate] }, async (req) => {
+    const actor = requireActor(req);
+    const { id } = req.params as { id: string };
+    return acceptShare(deps(), actor.userId, id);
+  });
+
+  app.post('/api/shares/:id/reject', { preHandler: [app.authenticate] }, async (req) => {
+    const actor = requireActor(req);
+    const { id } = req.params as { id: string };
+    return rejectShare(deps(), actor.userId, id);
   });
 
   /** 共享订阅：tags 含 'shared' 的最新版记忆 */

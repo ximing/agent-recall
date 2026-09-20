@@ -4,6 +4,7 @@ import type {
   DiagnoseResult,
   ImportStrategy,
   MemoryPublic,
+  ShareInvitePublic,
   SnapshotPublic,
 } from '@agent-recall/dto';
 import { Service } from '@rabjs/react';
@@ -30,6 +31,7 @@ export class OpsService extends Service {
   restoreStrategy: ImportStrategy = 'skip';
 
   audit: AuditEntryPublic[] = [];
+  invites: ShareInvitePublic[] = [];
   feed: MemoryPublic[] = [];
 
   peerUrl = 'http://127.0.0.1:8787';
@@ -174,10 +176,31 @@ export class OpsService extends Service {
 
   async loadFeed(): Promise<void> {
     try {
-      const result = await api.sharedFeed();
-      this.feed = result.memories;
+      const [feed, incoming] = await Promise.all([api.sharedFeed(), api.incomingShares()]);
+      this.feed = feed.memories;
+      this.invites = incoming.invites;
     } catch (err) {
       this.error = errorMessage(err, '读取共享失败');
+    }
+  }
+
+  async acceptInvite(id: string): Promise<void> {
+    this.error = null;
+    try {
+      await api.acceptShare(id);
+      await this.loadFeed();
+    } catch (err) {
+      this.error = errorMessage(err, '接受分享失败');
+    }
+  }
+
+  async rejectInvite(id: string): Promise<void> {
+    this.error = null;
+    try {
+      await api.rejectShare(id);
+      await this.loadFeed();
+    } catch (err) {
+      this.error = errorMessage(err, '拒绝分享失败');
     }
   }
 

@@ -671,7 +671,8 @@ const TOOLS = [
   },
   {
     name: 'memory_team_share',
-    description: 'Share a memory with a teammate by email. Shared memories appear in their memory_team_feed.',
+    description:
+      'Send an invitation to share a memory with a teammate by email. The teammate must accept before it appears in memory_team_feed.',
     inputSchema: {
       type: 'object',
       properties: {

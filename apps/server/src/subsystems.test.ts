@@ -223,45 +223,158 @@ describe('subsystems: kv, graph, snapshots, mesh, share, crystallize, admin, con
     }
   });
 
-  it('share: copies a redacted memory into another user library, feed lists it, idempotent', async () => {
+  it('share: invitation until accept, redacted copy is idempotent, unknown email matches a real invite', async () => {
+    const secret = 'sk-aaaaaaaabbbbbbbbccccccccdddddddd';
     const created = await call(app, 'POST', '/api/memories', {
       token,
-      payload: { content: '共享知识：api_key = sk-aaaaaaaabbbbbbbbccccccccdddddddd 要保密', tags: ['kb'], project: 'shared-proj' },
+      payload: { content: `共享知识：api_key = ${secret} 要保密`, tags: ['kb'], project: 'shared-proj' },
     });
     const sourceId = (created.body?.memory as { id: string }).id;
 
     const shared = await call(app, 'POST', `/api/memories/${sourceId}/share`, {
       token,
-      payload: { email: 'sub-b@example.com' },
+      payload: { email: 'Sub-B@Example.com' },
     });
     expect(shared.status).toBe(200);
-    expect(shared.body?.shared).toBe(true);
+    expect(shared.body).toEqual({ shared: true, delivery: 'pending' });
 
-    // 目标用户不存在 → 404
+    // 接受前不进入对方的库、列表或 shared feed
+    const feedBefore = await call(app, 'GET', '/api/memories/shared-feed', { token: tokenB });
+    expect(JSON.stringify(feedBefore.body)).not.toContain('共享知识');
+    const listBefore = await call(app, 'GET', '/api/memories', { token: tokenB });
+    expect(JSON.stringify(listBefore.body)).not.toContain('共享知识');
+
+    // 再次分享（小写邮箱）仍是同一条 pending 邀请
+    const sharedAgain = await call(app, 'POST', `/api/memories/${sourceId}/share`, {
+      token,
+      payload: { email: 'sub-b@example.com' },
+    });
+    expect(sharedAgain.body).toEqual({ shared: true, delivery: 'pending' });
+
+    const incoming = await call(app, 'GET', '/api/shares/incoming', { token: tokenB });
+    expect(incoming.status).toBe(200);
+    const invites = incoming.body?.invites as Array<{
+      id: string;
+      fromEmail: string;
+      fromDisplayName: string | null;
+      memoryId: string;
+      content: string;
+      project: string | null;
+      createdAt: string;
+    }>;
+    expect(invites).toHaveLength(1);
+    const invite = invites[0]!;
+    expect(invite.fromEmail).toBe('sub-a@example.com');
+    expect(invite.fromDisplayName).toBe('sub-a');
+    expect(invite.memoryId).toBe(sourceId);
+    expect(invite.project).toBe('shared-proj');
+    expect(invite.content).toContain('共享知识');
+    expect(invite.content).not.toContain(secret);
+    expect(invite.createdAt).toEqual(expect.any(String));
+
+    // 未知邮箱、分享给自己：与新建邀请相同的 200，且不产生邀请或记忆
     const missing = await call(app, 'POST', `/api/memories/${sourceId}/share`, {
       token,
-      payload: { email: 'nobody@example.com' },
+      payload: { email: 'Nobody@Example.com' },
     });
-    expect(missing.status).toBe(404);
+    const self = await call(app, 'POST', `/api/memories/${sourceId}/share`, {
+      token,
+      payload: { email: 'Sub-A@Example.com' },
+    });
+    expect(missing.status).toBe(shared.status);
+    expect(missing.body).toEqual(shared.body);
+    expect(self.status).toBe(shared.status);
+    expect(self.body).toEqual(shared.body);
+
+    const incomingAfter = await call(app, 'GET', '/api/shares/incoming', { token: tokenB });
+    expect(incomingAfter.body?.invites).toHaveLength(1);
+    const senderIncoming = await call(app, 'GET', '/api/shares/incoming', { token });
+    expect(senderIncoming.body?.invites).toEqual([]);
+    const senderList = await call(app, 'GET', '/api/memories', { token });
+    const senderCopies = (senderList.body?.memories as Array<{ eventId: string | null }>).filter((m) =>
+      m.eventId?.includes(`share:${sourceId}:`),
+    );
+    expect(senderCopies).toHaveLength(0);
+    const recipientList = await call(app, 'GET', '/api/memories', { token: tokenB });
+    expect(JSON.stringify(recipientList.body)).not.toContain('共享知识');
+
+    // 别人不能接受
+    const foreign = await call(app, 'POST', `/api/shares/${invite.id}/accept`, { token });
+    expect(foreign.status).toBe(404);
+
+    // 拒绝不复制；再次分享把同一条邀请重开为 pending
+    const rejected = await call(app, 'POST', `/api/shares/${invite.id}/reject`, { token: tokenB });
+    expect(rejected.status).toBe(200);
+    expect(rejected.body).toEqual({ delivery: 'rejected' });
+    const afterReject = await call(app, 'GET', '/api/memories', { token: tokenB });
+    expect(JSON.stringify(afterReject.body)).not.toContain('共享知识');
+    const feedRejected = await call(app, 'GET', '/api/memories/shared-feed', { token: tokenB });
+    expect(JSON.stringify(feedRejected.body)).not.toContain('共享知识');
+    const hidden = await call(app, 'GET', '/api/shares/incoming', { token: tokenB });
+    expect(hidden.body?.invites).toEqual([]);
+
+    const reopened = await call(app, 'POST', `/api/memories/${sourceId}/share`, {
+      token,
+      payload: { email: 'sub-b@example.com' },
+    });
+    expect(reopened.body).toEqual({ shared: true, delivery: 'pending' });
+    const reopenedList = await call(app, 'GET', '/api/shares/incoming', { token: tokenB });
+    const pending = reopenedList.body?.invites as Array<{ id: string }>;
+    expect(pending).toHaveLength(1);
+    expect(pending[0]?.id).toBe(invite.id);
+
+    const beforeAccept = await call(app, 'GET', '/api/audit?limit=200', { token });
+    const beforeActions = (beforeAccept.body?.entries as Array<{ action: string }>).map((e) => e.action);
+    expect(beforeActions).toContain('memory.share_invite');
+    expect(beforeActions).not.toContain('memory.share');
+
+    const accepted = await call(app, 'POST', `/api/shares/${invite.id}/accept`, { token: tokenB });
+    expect(accepted.status).toBe(200);
+    expect(accepted.body?.delivery).toBe('accepted');
+    const acceptedMemory = accepted.body?.memory as { id: string; content: string; tags: string[]; eventId: string };
+    expect(acceptedMemory.content).not.toContain(secret);
+    expect(acceptedMemory.tags).toEqual(expect.arrayContaining(['shared', 'kb']));
+    expect(acceptedMemory.eventId).toContain(`share:${sourceId}:`);
 
     const feed = await call(app, 'GET', '/api/memories/shared-feed', { token: tokenB });
-    const items = feed.body?.memories as Array<{ content: string; tags: string[]; eventId: string }>;
-    const copy = items.find((m) => m.tags.includes('shared') && m.content.includes('共享知识'));
-    expect(copy).toBeTruthy();
-    expect(copy!.tags).toContain('kb');
-    // 隐私清洗：密钥不带过去
-    expect(copy!.content).not.toContain('sk-aaaaaaaabbbbbbbb');
-    expect(copy!.eventId).toContain(`share:${sourceId}:`);
-
-    // 幂等：再次分享不产生第二份
-    await call(app, 'POST', `/api/memories/${sourceId}/share`, { token, payload: { email: 'sub-b@example.com' } });
-    const again = await call(app, 'GET', '/api/memories/shared-feed', { token: tokenB });
-    const copies = (again.body?.memories as Array<{ content: string }>).filter((m) => m.content.includes('共享知识'));
+    const items = feed.body?.memories as Array<{ content: string; tags: string[]; eventId: string; project: string | null }>;
+    const copies = items.filter((m) => m.content.includes('共享知识'));
     expect(copies).toHaveLength(1);
+    expect(copies[0]?.tags).toEqual(expect.arrayContaining(['shared', 'kb']));
+    expect(copies[0]?.content).not.toContain(secret);
+    expect(copies[0]?.eventId).toContain(`share:${sourceId}:`);
+    expect(copies[0]?.project).toBe('shared-proj');
 
-    // 源用户的 feed 不含自己的记忆
+    // 再次接受、再次分享都不产生第二份
+    const acceptedAgain = await call(app, 'POST', `/api/shares/${invite.id}/accept`, { token: tokenB });
+    expect(acceptedAgain.status).toBe(200);
+    expect(acceptedAgain.body?.delivery).toBe('accepted');
+    expect((acceptedAgain.body?.memory as { id: string }).id).toBe(acceptedMemory.id);
+    const reshare = await call(app, 'POST', `/api/memories/${sourceId}/share`, {
+      token,
+      payload: { email: 'sub-b@example.com' },
+    });
+    expect(reshare.body).toEqual({ shared: true, delivery: 'accepted' });
+    const again = await call(app, 'GET', '/api/memories/shared-feed', { token: tokenB });
+    const againCopies = (again.body?.memories as Array<{ content: string }>).filter((m) => m.content.includes('共享知识'));
+    expect(againCopies).toHaveLength(1);
+    const listed = await call(app, 'GET', '/api/memories', { token: tokenB });
+    const listedCopies = (listed.body?.memories as Array<{ content: string }>).filter((m) => m.content.includes('共享知识'));
+    expect(listedCopies).toHaveLength(1);
+
+    const afterAccept = await call(app, 'GET', '/api/audit?limit=200', { token });
+    const afterActions = (afterAccept.body?.entries as Array<{ action: string }>).map((e) => e.action);
+    expect(afterActions).toContain('memory.share');
+
+    // 源用户的 feed 不含自己的记忆；别人不能分享这条记忆
     const ownFeed = await call(app, 'GET', '/api/memories/shared-feed', { token });
     expect(JSON.stringify(ownFeed.body)).not.toContain('共享知识');
+    const notMine = await call(app, 'POST', `/api/memories/${sourceId}/share`, {
+      token: tokenB,
+      payload: { email: 'sub-a@example.com' },
+    });
+    expect(notMine.status).toBe(404);
+    expect((notMine.body?.error as { message: string }).message).toBe('记忆不存在');
   });
 
   it('crystallize: manual session crystallization is idempotent within the hour', async () => {

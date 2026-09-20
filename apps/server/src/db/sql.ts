@@ -110,4 +110,16 @@ export const SCHEMA_STATEMENTS = [
     created_at timestamptz NOT NULL
   )`,
   `CREATE INDEX IF NOT EXISTS audit_entries_user_created_idx ON audit_entries (user_id, created_at)`,
+  `CREATE TABLE IF NOT EXISTS share_invites (
+    id uuid PRIMARY KEY,
+    from_user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    to_user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    memory_id uuid NOT NULL REFERENCES memories(id) ON DELETE CASCADE,
+    status varchar(16) NOT NULL,
+    created_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL,
+    CONSTRAINT share_invites_status_check CHECK (status IN ('pending', 'accepted', 'rejected')),
+    CONSTRAINT share_invites_from_memory_to_uidx UNIQUE (from_user_id, memory_id, to_user_id)
+  )`,
+  `CREATE INDEX IF NOT EXISTS share_invites_to_status_idx ON share_invites (to_user_id, status)`,
 ];

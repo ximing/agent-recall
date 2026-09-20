@@ -686,14 +686,43 @@ async function scenario(report: Report, resources: Resources): Promise<void> {
   });
 
   await report.step('mcp share, feed, mesh', async () => {
+    const app = primary(resources);
     const shared = obj(
       await mcp().call('memory_team_share', { id: id('share'), email: E2E_PEER.email }),
       'share',
     );
-    if (shared.shared !== true) throw new Error(JSON.stringify(shared));
-    await mcp().call('memory_team_share', { id: id('share'), email: E2E_PEER.email });
+    if (shared.shared !== true || shared.delivery !== 'pending') throw new Error(JSON.stringify(shared));
+    const sharedAgain = obj(
+      await mcp().call('memory_team_share', { id: id('share'), email: E2E_PEER.email }),
+      'share again',
+    );
+    if (sharedAgain.shared !== true || sharedAgain.delivery !== 'pending') throw new Error(JSON.stringify(sharedAgain));
     const own = await mcp().call('memory_team_feed');
     lacks(own.text, MARK.share);
+    const early = obj(await resources.peerMcp!.call('memory_team_feed'), 'peer feed before accept');
+    const earlyCopies = asMemories(early, 'feed before accept').filter((memory) =>
+      String(memory.content ?? '').includes(MARK.share),
+    );
+    if (earlyCopies.length !== 0) throw new Error(`feed copies before accept ${String(earlyCopies.length)}`);
+    const incoming = http(
+      200,
+      await call(app, 'GET', '/api/shares/incoming', { token: resources.peerToken }),
+      'incoming shares',
+    );
+    const invites = incoming.invites;
+    if (!Array.isArray(invites)) throw new Error(JSON.stringify(incoming));
+    const invite = invites.find((item) => {
+      if (typeof item !== 'object' || item === null) return false;
+      return String((item as { content?: unknown }).content ?? '').includes(MARK.share);
+    }) as { id?: unknown; content?: unknown } | undefined;
+    if (typeof invite?.id !== 'string') throw new Error(JSON.stringify(incoming));
+    lacks(String(invite.content), MARK.shareSecret);
+    const accepted = http(
+      200,
+      await call(app, 'POST', `/api/shares/${invite.id}/accept`, { token: resources.peerToken }),
+      'accept share',
+    );
+    if (accepted.delivery !== 'accepted') throw new Error(JSON.stringify(accepted));
     const feed = obj(await resources.peerMcp!.call('memory_team_feed'), 'peer feed');
     const copies = asMemories(feed, 'feed').filter((memory) => String(memory.content ?? '').includes(MARK.share));
     if (copies.length !== 1) throw new Error(`feed copies ${String(copies.length)}`);

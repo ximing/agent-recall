@@ -154,7 +154,7 @@ export const TOOL_GROUPS: readonly GuideGroup[] = [
     intro: '分给队友、和另一台服务器同步，或导出成 Obsidian 笔记。',
     tools: [
       { name: 'memory_mesh_sync', summary: '和另一台 agent-recall 同步。strategy 决定重复怎么处理。' },
-      { name: 'memory_team_share', summary: '按邮箱把一条记忆分给队友。' },
+      { name: 'memory_team_share', summary: '按邮箱发送邀请。队友接受后才会出现在共享列表里。' },
       { name: 'memory_team_feed', summary: '看别人分给你的记忆。' },
       { name: 'memory_obsidian_export', summary: '每条记忆写成一个带 frontmatter 的 Markdown 文件。' },
     ],

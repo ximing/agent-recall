@@ -26,6 +26,10 @@ import type {
   SessionSummaryPublic,
   SettingsPublic,
   SettingsUpdateInput,
+  ShareAcceptResult,
+  ShareInvitePublic,
+  ShareRejectResult,
+  ShareResult,
   SnapshotPublic,
   TokenPublic,
   UserPublic,
@@ -120,10 +124,15 @@ export const api = {
   previewContext: (input: HookContextInput) =>
     request<HookContextResult>('/api/memories/context', { method: 'POST', body: JSON.stringify(input) }),
   shareMemory: (id: string, email: string) =>
-    request<{ shared: true }>(`/api/memories/${id}/share`, {
+    request<ShareResult>(`/api/memories/${id}/share`, {
       method: 'POST',
       body: JSON.stringify({ email }),
     }),
+  incomingShares: () => request<{ invites: ShareInvitePublic[] }>('/api/shares/incoming'),
+  acceptShare: (id: string) =>
+    request<ShareAcceptResult>(`/api/shares/${id}/accept`, { method: 'POST' }),
+  rejectShare: (id: string) =>
+    request<ShareRejectResult>(`/api/shares/${id}/reject`, { method: 'POST' }),
   sharedFeed: () => request<{ memories: MemoryPublic[] }>('/api/memories/shared-feed'),
   memoryRelations: (id: string) => request<{ related: MemoryPublic[] }>(`/api/memories/${id}/relations`),
   consolidate: (dryRun?: boolean) =>

@@ -183,3 +183,29 @@ export const auditEntries = pgTable(
 );
 
 export type AuditEntryRow = typeof auditEntries.$inferSelect;
+
+/** 团队分享邀请：接受前不把记忆复制进对方库 */
+export const shareInvites = pgTable(
+  'share_invites',
+  {
+    id: uuid('id').primaryKey(),
+    fromUserId: uuid('from_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    toUserId: uuid('to_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    memoryId: uuid('memory_id')
+      .notNull()
+      .references(() => memories.id, { onDelete: 'cascade' }),
+    status: varchar('status', { length: 16 }).notNull(),
+    createdAt: timestamptz('created_at').notNull(),
+    updatedAt: timestamptz('updated_at').notNull(),
+  },
+  (table) => [
+    uniqueIndex('share_invites_from_memory_to_uidx').on(table.fromUserId, table.memoryId, table.toUserId),
+    index('share_invites_to_status_idx').on(table.toUserId, table.status),
+  ],
+);
+
+export type ShareInviteRow = typeof shareInvites.$inferSelect;

@@ -743,8 +743,11 @@ export class MemoriesService extends Service {
     this.shareNote = null;
     this.error = null;
     try {
-      await api.shareMemory(this.activeId, email);
-      this.shareNote = `已复制给 ${email}。对方库里会多一条带 shared 标签的记忆。`;
+      const result = await api.shareMemory(this.activeId, email);
+      this.shareNote =
+        result.delivery === 'accepted'
+          ? `${email} 已经接受过这条邀请，不会再复制一份。`
+          : `已向 ${email} 发送邀请。对方接受后，这条记忆才会进入对方的库。`;
     } catch (err) {
       this.error = errorMessage(err, '分享失败');
     } finally {

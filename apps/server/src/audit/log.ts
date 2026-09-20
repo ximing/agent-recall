@@ -6,7 +6,7 @@ import { auditEntries, type AuditEntryRow } from '../db/schema.js';
 
 /**
  * 审计埋点：失败只记日志不阻塞主链路。
- * 在 deleteMemory / batchForget / autoForget / importMemories / share / snapshot restore / heal 处调用。
+ * 在 deleteMemory / batchForget / autoForget / importMemories / share invite / share accept / snapshot restore / heal 处调用。
  */
 export async function recordAudit(
   db: Database,

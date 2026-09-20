@@ -16,7 +16,8 @@
 | `GET /api/memories/recall-logs`、`/stats` | 两者 | 召回日志、统计 |
 | `GET /api/memories/export`，`POST /api/memories/import` | 两者 | 导出、导入 |
 | `POST /api/memories/batch-forget`、`/auto-forget`、`/consolidate` | 两者 | 批量删除、自动遗忘、合并近似重复 |
-| `POST /api/memories/:id/share`，`GET /api/memories/shared-feed` | 两者 | 分给队友、查看收到的分享 |
+| `POST /api/memories/:id/share`，`GET /api/memories/shared-feed` | 两者 | 向队友发送邀请（对方接受前不复制）、查看已接受的分享 |
+| `GET /api/shares/incoming`，`POST /api/shares/:id/accept`、`/reject` | 两者 | 列出、接受或拒绝收到的邀请 |
 | `POST /api/memories/reflect` | 两者 | 生成反思 |
 | `GET /api/sessions`，`GET /api/sessions/:sessionId` | 两者 | 会话列表、时间线 |
 | `POST /api/sessions/:sessionId/crystallize` | 两者 | 把一场会话收成摘要 |

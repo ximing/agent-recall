@@ -359,8 +359,31 @@ export type ShareInput = z.infer<typeof shareSchema>;
 
 export const shareResultSchema = z.object({
   shared: z.literal(true),
+  delivery: z.enum(['pending', 'accepted']),
 });
 export type ShareResult = z.infer<typeof shareResultSchema>;
+
+export const shareInviteSchema = z.object({
+  id: z.string().uuid(),
+  fromEmail: z.string().email(),
+  fromDisplayName: z.string().nullable(),
+  memoryId: z.string().uuid(),
+  content: z.string(),
+  project: z.string().nullable(),
+  createdAt: z.string(),
+});
+export type ShareInvitePublic = z.infer<typeof shareInviteSchema>;
+
+export const shareAcceptResultSchema = z.object({
+  memory: memorySchema,
+  delivery: z.literal('accepted'),
+});
+export type ShareAcceptResult = z.infer<typeof shareAcceptResultSchema>;
+
+export const shareRejectResultSchema = z.object({
+  delivery: z.literal('rejected'),
+});
+export type ShareRejectResult = z.infer<typeof shareRejectResultSchema>;
 
 // ---- 近重复合并 ----
 

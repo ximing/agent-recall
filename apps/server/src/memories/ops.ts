@@ -1,7 +1,9 @@
+import { randomUUID } from 'node:crypto';
 import { and, desc, eq, gte, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm';
-import type { ConsolidateResult, MemoryPublic, MemoryType, Origin } from '@agent-recall/dto';
+import type { ConsolidateResult, MemoryPublic, MemoryType, Origin, ShareInvitePublic, ShareResult } from '@agent-recall/dto';
 import { recordAudit } from '../audit/log.js';
-import { memories, users } from '../db/schema.js';
+import { isUniqueViolation } from '../db/errors.js';
+import { memories, shareInvites, users, type MemoryRow, type ShareInviteRow } from '../db/schema.js';
 import { AppError } from '../errors.js';
 import { createMemory, listMemories, type CreateMemoryResult, type MemoryDeps } from './service.js';
 import { redactSecrets } from './privacy.js';
@@ -16,8 +18,110 @@ async function removeFromIndexes(deps: MemoryDeps, ids: string[]): Promise<void>
   }
 }
 
-/** 团队共享：隐私清洗后把记忆复制到目标用户库，eventId 幂等 */
-export async function shareMemory(deps: MemoryDeps, userId: string, id: string, email: string): Promise<void> {
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+async function findInviteByParties(
+  deps: MemoryDeps,
+  fromUserId: string,
+  memoryId: string,
+  toUserId: string,
+): Promise<ShareInviteRow | undefined> {
+  const rows = await deps.db
+    .select()
+    .from(shareInvites)
+    .where(
+      and(
+        eq(shareInvites.fromUserId, fromUserId),
+        eq(shareInvites.memoryId, memoryId),
+        eq(shareInvites.toUserId, toUserId),
+      ),
+    );
+  return rows[0];
+}
+
+async function findInvite(deps: MemoryDeps, id: string): Promise<ShareInviteRow | undefined> {
+  const rows = await deps.db.select().from(shareInvites).where(eq(shareInvites.id, id));
+  return rows[0];
+}
+
+function requireRecipient(invite: ShareInviteRow | undefined, userId: string): ShareInviteRow {
+  if (!invite || invite.toUserId !== userId) throw new AppError(404, 'NOT_FOUND', '邀请不存在');
+  return invite;
+}
+
+/** 接受时复制：隐私清洗，保留 origin/type/project/sessionId，加 shared，eventId 幂等 */
+async function copySharedMemory(deps: MemoryDeps, targetUserId: string, row: MemoryRow): Promise<CreateMemoryResult> {
+  const { content } = redactSecrets(row.content);
+  return createMemory(deps, targetUserId, {
+    content,
+    origin: row.origin as Origin,
+    type: row.type as MemoryType,
+    tags: [...new Set([...row.tags, 'shared'])],
+    project: row.project ?? undefined,
+    sessionId: row.sessionId ?? undefined,
+    eventId: `share:${row.id}:${targetUserId}`,
+    skipDedup: true,
+  });
+}
+
+/** 已接受保持 accepted；待处理保持 pending；已拒绝则重开并记 share_invite */
+async function reopenOrKeep(
+  deps: MemoryDeps,
+  fromUserId: string,
+  memoryId: string,
+  toUserId: string,
+  invite: ShareInviteRow,
+): Promise<'pending' | 'accepted'> {
+  if (invite.status === 'accepted') return 'accepted';
+  if (invite.status === 'pending') return 'pending';
+  const updated = await deps.db
+    .update(shareInvites)
+    .set({ status: 'pending', updatedAt: new Date() })
+    .where(and(eq(shareInvites.id, invite.id), eq(shareInvites.status, 'rejected')))
+    .returning({ id: shareInvites.id });
+  if (updated.length > 0) {
+    await recordAudit(deps.db, fromUserId, 'memory.share_invite', { memoryId, to: toUserId });
+    return 'pending';
+  }
+  const again = await findInviteByParties(deps, fromUserId, memoryId, toUserId);
+  if (again?.status === 'accepted') return 'accepted';
+  return 'pending';
+}
+
+async function createInvite(
+  deps: MemoryDeps,
+  fromUserId: string,
+  memoryId: string,
+  toUserId: string,
+): Promise<'pending' | 'accepted'> {
+  const now = new Date();
+  try {
+    await deps.db.insert(shareInvites).values({
+      id: randomUUID(),
+      fromUserId,
+      toUserId,
+      memoryId,
+      status: 'pending',
+      createdAt: now,
+      updatedAt: now,
+    });
+  } catch (err) {
+    if (!isUniqueViolation(err)) throw err;
+    const existing = await findInviteByParties(deps, fromUserId, memoryId, toUserId);
+    if (!existing) throw err;
+    return reopenOrKeep(deps, fromUserId, memoryId, toUserId, existing);
+  }
+  await recordAudit(deps.db, fromUserId, 'memory.share_invite', { memoryId, to: toUserId });
+  return 'pending';
+}
+
+/**
+ * 团队共享：只创建或重开邀请，接受前不复制。
+ * 未知邮箱和分享给自己与新建邀请返回相同的 pending，且不插入行。
+ */
+export async function shareMemory(deps: MemoryDeps, userId: string, id: string, email: string): Promise<ShareResult> {
   const source = await deps.db
     .select()
     .from(memories)
@@ -25,22 +129,83 @@ export async function shareMemory(deps: MemoryDeps, userId: string, id: string, 
   const row = source[0];
   if (!row) throw new AppError(404, 'NOT_FOUND', '记忆不存在');
 
-  const targets = await deps.db.select().from(users).where(eq(users.email, email));
+  const targets = await deps.db.select().from(users).where(eq(users.email, normalizeEmail(email)));
   const target = targets[0];
-  if (!target) throw new AppError(404, 'NOT_FOUND', '目标用户不存在');
+  if (!target || target.id === userId) return { shared: true, delivery: 'pending' };
 
-  const { content } = redactSecrets(row.content);
-  await createMemory(deps, target.id, {
-    content,
-    origin: row.origin as Origin,
-    type: row.type as MemoryType,
-    tags: [...new Set([...row.tags, 'shared'])],
-    project: row.project ?? undefined,
-    sessionId: row.sessionId ?? undefined,
-    eventId: `share:${row.id}:${target.id}`,
-    skipDedup: true,
-  });
-  await recordAudit(deps.db, userId, 'memory.share', { memoryId: row.id, to: target.id });
+  const existing = await findInviteByParties(deps, userId, row.id, target.id);
+  const delivery = existing
+    ? await reopenOrKeep(deps, userId, row.id, target.id, existing)
+    : await createInvite(deps, userId, row.id, target.id);
+  return { shared: true, delivery };
+}
+
+/** 当前用户收到的待处理邀请。正文读活的源记忆并先做隐私清洗；源记忆已删除的邀请不返回。 */
+export async function listIncomingShares(deps: MemoryDeps, userId: string): Promise<ShareInvitePublic[]> {
+  const rows = await deps.db
+    .select({
+      id: shareInvites.id,
+      fromEmail: users.email,
+      fromDisplayName: users.displayName,
+      memoryId: shareInvites.memoryId,
+      content: memories.content,
+      project: memories.project,
+      createdAt: shareInvites.createdAt,
+    })
+    .from(shareInvites)
+    .innerJoin(memories, eq(memories.id, shareInvites.memoryId))
+    .innerJoin(users, eq(users.id, shareInvites.fromUserId))
+    .where(and(eq(shareInvites.toUserId, userId), eq(shareInvites.status, 'pending')))
+    .orderBy(desc(shareInvites.createdAt));
+  return rows.map((row) => ({
+    id: row.id,
+    fromEmail: row.fromEmail,
+    fromDisplayName: row.fromDisplayName,
+    memoryId: row.memoryId,
+    content: redactSecrets(row.content).content,
+    project: row.project,
+    createdAt: row.createdAt.toISOString(),
+  }));
+}
+
+export async function acceptShare(
+  deps: MemoryDeps,
+  userId: string,
+  inviteId: string,
+): Promise<{ memory: MemoryPublic; delivery: 'accepted' }> {
+  const invite = requireRecipient(await findInvite(deps, inviteId), userId);
+  if (invite.status === 'rejected') throw new AppError(409, 'CONFLICT', '邀请已拒绝');
+  const sourceRows = await deps.db.select().from(memories).where(eq(memories.id, invite.memoryId));
+  const source = sourceRows[0];
+  if (!source) throw new AppError(404, 'NOT_FOUND', '邀请不存在');
+  const copied = await copySharedMemory(deps, userId, source);
+  if (invite.status === 'pending') {
+    const updated = await deps.db
+      .update(shareInvites)
+      .set({ status: 'accepted', updatedAt: new Date() })
+      .where(and(eq(shareInvites.id, invite.id), eq(shareInvites.status, 'pending')))
+      .returning({ id: shareInvites.id });
+    if (updated.length > 0) {
+      await recordAudit(deps.db, invite.fromUserId, 'memory.share', { memoryId: source.id, to: userId });
+    }
+  }
+  return { memory: copied.memory, delivery: 'accepted' };
+}
+
+export async function rejectShare(
+  deps: MemoryDeps,
+  userId: string,
+  inviteId: string,
+): Promise<{ delivery: 'rejected' }> {
+  const invite = requireRecipient(await findInvite(deps, inviteId), userId);
+  if (invite.status === 'accepted') throw new AppError(409, 'CONFLICT', '邀请已接受');
+  if (invite.status === 'pending') {
+    await deps.db
+      .update(shareInvites)
+      .set({ status: 'rejected', updatedAt: new Date() })
+      .where(and(eq(shareInvites.id, invite.id), eq(shareInvites.status, 'pending')));
+  }
+  return { delivery: 'rejected' };
 }
 
 /** 共享订阅：当前用户 tags 含 'shared' 的最新版记忆 */
