@@ -18,6 +18,8 @@ export interface MemoryDeps {
   retrieval: RetrievalPorts;
   /** 环境变量 ENCRYPTION_KEY，用来解密用户的精排 API Key */
   encryptionKey: string;
+  /** 未传时精排地址守卫回退到进程里的 APP_ENV */
+  appEnv?: string;
 }
 
 /** 内容哈希去重窗口：同一用户 5 分钟内写入相同规范化内容视为重复 */
@@ -328,13 +330,14 @@ export async function markAccessed(deps: MemoryDeps, userId: string, ids: string
   }
 }
 
-function buildReranker(settings: UserSettingsRow, encryptionKey: string): Reranker | undefined {
+function buildReranker(settings: UserSettingsRow, encryptionKey: string, appEnv: string | undefined): Reranker | undefined {
   const apiKey = getRerankApiKey(settings, encryptionKey);
   if (!settings.rerankEnabled || !apiKey) return undefined;
   const client = createRerankClient({
     apiKey,
     baseUrl: settings.rerankBaseUrl,
     model: settings.rerankModel,
+    appEnv,
   });
   return {
     async rerank(query, docs) {
@@ -365,7 +368,7 @@ export async function recallForUser(
   options: { filter?: MemoryFilter; deep?: boolean } = {},
 ): Promise<RecallResult> {
   const settings = await getSettings(deps.db, userId);
-  const reranker = buildReranker(settings, deps.encryptionKey);
+  const reranker = buildReranker(settings, deps.encryptionKey, deps.appEnv);
   const started = performance.now();
   const outcome = await recallMemories(deps.db, deps.retrieval, userId, query, limit, {
     reranker,

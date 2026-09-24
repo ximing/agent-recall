@@ -66,7 +66,12 @@ function parseListQuery(req: FastifyRequest): { filter?: MemoryFilter; limit?: n
 }
 
 export function registerMemoryRoutes(app: FastifyInstance): void {
-  const deps = () => ({ db: app.ctx.db, retrieval: app.ctx.retrieval, encryptionKey: app.ctx.config.ENCRYPTION_KEY });
+  const deps = () => ({
+    db: app.ctx.db,
+    retrieval: app.ctx.retrieval,
+    encryptionKey: app.ctx.config.ENCRYPTION_KEY,
+    appEnv: app.ctx.config.APP_ENV,
+  });
 
   app.get('/api/memories/recall-logs', { preHandler: [app.authenticate] }, async (req) => {
     const actor = requireActor(req);

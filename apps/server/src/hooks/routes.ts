@@ -14,7 +14,12 @@ const IGNORED_TOOLS = new Set(['TodoWrite', 'TodoRead', 'ListAgents', 'TaskStop'
 const MIN_OBSERVATION_LENGTH = 24;
 
 function deps(app: FastifyInstance): MemoryDeps {
-  return { db: app.ctx.db, retrieval: app.ctx.retrieval, encryptionKey: app.ctx.config.ENCRYPTION_KEY };
+  return {
+    db: app.ctx.db,
+    retrieval: app.ctx.retrieval,
+    encryptionKey: app.ctx.config.ENCRYPTION_KEY,
+    appEnv: app.ctx.config.APP_ENV,
+  };
 }
 
 export function registerHookRoutes(app: FastifyInstance): void {

@@ -1,10 +1,13 @@
-import { ensure2xx, requestJson, RetrievalError } from './http.js';
+import { requestJson, RetrievalError, type RetrievalErrorCode } from './http.js';
+import { assertRerankBaseUrl } from './url-guard.js';
 
 export interface RerankClientOptions {
   apiKey: string;
   baseUrl: string;
   model: string;
   timeoutMs?: number;
+  /** 与 APP_ENV / 配置一致。缺省时由地址守卫读取进程环境。 */
+  appEnv?: string;
 }
 
 export interface RerankResult {
@@ -32,6 +35,29 @@ function parseRerankResponse(json: unknown): RerankResult[] {
   });
 }
 
+const SAFE_RERANK_FAILURE = /^rerank failed with status \d{3}$/;
+
+/** 日志和界面只保留固定短语，不带请求 URL 或响应体。 */
+export function publicRerankFailure(err: unknown): string {
+  const message = err instanceof Error ? err.message : '';
+  if (message === 'rerank failed (network)' || SAFE_RERANK_FAILURE.test(message)) return message;
+  if (err instanceof RetrievalError && typeof err.status === 'number') {
+    return rerankStatusMessage(err.status);
+  }
+  return 'rerank failed (network)';
+}
+
+function rerankStatusMessage(status: number): string {
+  if (status >= 100 && status <= 599) return `rerank failed with status ${String(status)}`;
+  return 'rerank failed (network)';
+}
+
+function statusCode(status: number): RetrievalErrorCode {
+  if (status >= 500) return 'HTTP_5XX';
+  if (status >= 400) return 'HTTP_4XX';
+  return 'BAD_RESPONSE';
+}
+
 /** 阿里云百炼 text-rerank：对候选文档按 query 相关性精排。 */
 export function createRerankClient(options: RerankClientOptions): RerankClient {
   const url = `${options.baseUrl.replace(/\/$/, '')}/services/rerank/text-rerank/text-rerank`;
@@ -39,20 +65,34 @@ export function createRerankClient(options: RerankClientOptions): RerankClient {
   return {
     async rerankTexts(query, documents, topN) {
       if (documents.length === 0) return [];
-      const res = await requestJson('POST', url, {
-        timeoutMs: options.timeoutMs ?? 20_000,
-        headers: {
-          'content-type': 'application/json',
-          authorization: `Bearer ${options.apiKey}`,
-        },
-        body: {
-          model: options.model,
-          input: { query, documents },
-          parameters: { top_n: topN, return_documents: false },
-        },
-      });
-      ensure2xx(res, 'dashscope rerank');
-      return parseRerankResponse(res.json);
+      try {
+        // 请求前再验一次：库里已经存下的内网地址也要失败关闭。
+        await assertRerankBaseUrl(url, { appEnv: options.appEnv });
+        const res = await requestJson('POST', url, {
+          timeoutMs: options.timeoutMs ?? 20_000,
+          redirect: 'manual',
+          headers: {
+            'content-type': 'application/json',
+            authorization: `Bearer ${options.apiKey}`,
+          },
+          body: {
+            model: options.model,
+            input: { query, documents },
+            parameters: { top_n: topN, return_documents: false },
+          },
+        });
+        // 3xx 也是失败。不读取 Location，也不把响应体写进错误。
+        if (res.status < 200 || res.status >= 300) {
+          throw new RetrievalError(statusCode(res.status), rerankStatusMessage(res.status), res.status);
+        }
+        return parseRerankResponse(res.json);
+      } catch (err) {
+        const message = publicRerankFailure(err);
+        if (err instanceof RetrievalError && err.message === message) throw err;
+        const status = err instanceof RetrievalError ? err.status : undefined;
+        const code = message === 'rerank failed (network)' ? 'NETWORK' : statusCode(status ?? 0);
+        throw new RetrievalError(code, message, status);
+      }
     },
   };
 }

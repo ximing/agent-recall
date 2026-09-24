@@ -237,7 +237,8 @@ describe('two-path recall', () => {
     )[0];
     expect(failedLog?.query).toBe('精排失败日志');
     expect(failedLog?.rerankApplied).toBe(false);
-    expect(failedLog?.rerankError).toContain('500');
+    expect(failedLog?.rerankError).toBe('rerank failed with status 500');
+    expect(failedLog?.rerankError).not.toContain('127.0.0.1');
     expect(failedLog?.results.every((result) => result.score === null)).toBe(true);
 
     await call(app, 'PUT', '/api/settings', { cookie, payload: { rerankEnabled: false, rerankApiKey: '' } });

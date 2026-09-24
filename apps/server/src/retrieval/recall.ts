@@ -4,6 +4,7 @@ import type { Database } from '../db/client.js';
 import { memories, type MemoryRow } from '../db/schema.js';
 import type { RetrievalPorts } from './ports.js';
 import { MEMORY_INDEX_SETTINGS } from './meili.js';
+import { publicRerankFailure } from './rerank.js';
 import { rrfMerge } from './rrf.js';
 
 export function meiliUserFilter(userId: string): string {
@@ -183,7 +184,7 @@ export async function recallMemories(
       ordered = [...reranked.map((item) => item.id).filter((id) => byId.has(id)), ...ordered.filter((id) => !seen.has(id))];
       rerankApplied = true;
     } catch (err) {
-      rerankError = err instanceof Error ? err.message : String(err);
+      rerankError = publicRerankFailure(err);
       console.error(`rerank failed, keep RRF order: ${rerankError}`);
     }
   }

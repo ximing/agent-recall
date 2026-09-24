@@ -22,6 +22,8 @@ export interface RequestJsonOptions {
   headers?: Record<string, string>;
   body?: unknown;
   timeoutMs?: number;
+  /** 默认 follow。精排必须传 manual，避免带着密钥跟随 Location。 */
+  redirect?: 'follow' | 'error' | 'manual';
 }
 
 function isAbortLike(err: unknown): boolean {
@@ -33,6 +35,7 @@ async function attemptOnce(method: string, url: string, opts: RequestJsonOptions
   try {
     res = await fetch(url, {
       method,
+      redirect: opts.redirect ?? 'follow',
       signal: AbortSignal.timeout(opts.timeoutMs ?? 20_000),
       ...(opts.headers ? { headers: opts.headers } : {}),
       ...(opts.body !== undefined ? { body: JSON.stringify(opts.body) } : {}),
