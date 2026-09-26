@@ -18,8 +18,6 @@ import type {
   MemoryPublic,
   MemoryStats,
   MemoryUpdateInput,
-  MeshSyncInput,
-  MeshSyncResult,
   RecallInput,
   RecallLogPublic,
   ReflectInput,
@@ -240,8 +238,6 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ strategy }),
     }),
-  meshSync: (input: MeshSyncInput) =>
-    request<MeshSyncResult>('/api/mesh/sync', { method: 'POST', body: JSON.stringify(input) }),
   diagnose: () => request<DiagnoseResult>('/api/admin/diagnose'),
   heal: () => request<HealResult>('/api/admin/heal', { method: 'POST' }),
   listAudit: (limit = 100) => request<{ entries: AuditEntryPublic[] }>(`/api/audit?limit=${String(limit)}`),

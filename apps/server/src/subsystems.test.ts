@@ -1,5 +1,4 @@
 import type { FastifyInstance } from 'fastify';
-import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createRetrieval } from './retrieval/ports.js';
 import { startProtocolStandin, type ProtocolStandIn } from './retrieval/protocol-standin.js';
@@ -14,7 +13,7 @@ async function registerUserWithToken(app: FastifyInstance, email: string): Promi
   return { cookie, token: String(created.body?.secret) };
 }
 
-describe('subsystems: kv, graph, snapshots, mesh, share, crystallize, admin, consolidate, reflect, audit', () => {
+describe('subsystems: kv, graph, snapshots, share, crystallize, admin, consolidate, reflect, audit', () => {
   let dataDir = '';
   let app: FastifyInstance;
   let standin: ProtocolStandIn;
@@ -170,57 +169,6 @@ describe('subsystems: kv, graph, snapshots, mesh, share, crystallize, admin, con
     expect((restored.body as { imported: number }).imported).toBeGreaterThanOrEqual(1);
     const back = await call(app, 'GET', `/api/memories/${memoryId}`, { token });
     expect(back.status).toBe(200);
-  });
-
-  it('mesh: syncs from a peer instance and rejects public hosts', async () => {
-    // 第二个 app 实例作为 peer（standin 复用，真实监听端口）
-    const peerDir = await makeDataDir();
-    const peerConfig = testConfig({
-      MEILI_URL: standin.url,
-      MEILI_API_KEY: 'meili-test',
-      QDRANT_URL: standin.url,
-      QDRANT_API_KEY: 'qdrant-test',
-      EMBEDDING_API_KEY: 'dash-test',
-      EMBEDDING_BASE_URL: standin.url,
-      EMBEDDING_DIMENSIONS: 8,
-    });
-    const peer = await openTestApp({ dataDir: peerDir, config: peerConfig, retrieval: createRetrieval(peerConfig) });
-    try {
-      const peerAuth = await registerUserWithToken(peer, 'peer@example.com');
-      await call(peer, 'POST', '/api/memories', {
-        token: peerAuth.token,
-        payload: { content: '来自 peer 的同步记忆', tags: ['mesh'] },
-      });
-      await peer.listen({ port: 0, host: '127.0.0.1' });
-      const port = (peer.server.address() as AddressInfo).port;
-
-      const sync = await call(app, 'POST', '/api/mesh/sync', {
-        token,
-        payload: { peerUrl: `http://127.0.0.1:${port}`, peerToken: peerAuth.token },
-      });
-      expect(sync.status).toBe(200);
-      const result = sync.body as { peerCount: number; imported: number };
-      expect(result.peerCount).toBeGreaterThanOrEqual(1);
-      expect(result.imported).toBeGreaterThanOrEqual(1);
-
-      const mine = await call(app, 'GET', '/api/memories?tags=mesh', { token });
-      expect(JSON.stringify(mine.body)).toContain('来自 peer 的同步记忆');
-
-      // SSRF：公网地址与非 http 协议都被拒
-      const publicPeer = await call(app, 'POST', '/api/mesh/sync', {
-        token,
-        payload: { peerUrl: 'http://8.8.8.8', peerToken: 'x' },
-      });
-      expect(publicPeer.status).toBe(400);
-      const filePeer = await call(app, 'POST', '/api/mesh/sync', {
-        token,
-        payload: { peerUrl: 'file:///etc/passwd', peerToken: 'x' },
-      });
-      expect(filePeer.status).toBe(400);
-    } finally {
-      await peer.close();
-      await removeDataDir(peerDir);
-    }
   });
 
   it('share: invitation until accept, redacted copy is idempotent, unknown email matches a real invite', async () => {

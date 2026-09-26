@@ -333,23 +333,6 @@ export const snapshotRestoreSchema = z.object({
 });
 export type SnapshotRestoreInput = z.infer<typeof snapshotRestoreSchema>;
 
-// ---- Mesh 同步 ----
-
-export const meshSyncSchema = z.object({
-  peerUrl: z.string().trim().url().max(500),
-  peerToken: z.string().min(1).max(500),
-  strategy: importStrategySchema.optional(),
-});
-export type MeshSyncInput = z.infer<typeof meshSyncSchema>;
-
-export const meshSyncResultSchema = z.object({
-  peerCount: z.number().int(),
-  imported: z.number().int(),
-  skipped: z.number().int(),
-  replaced: z.number().int(),
-});
-export type MeshSyncResult = z.infer<typeof meshSyncResultSchema>;
-
 // ---- 团队共享 ----
 
 export const shareSchema = z.object({

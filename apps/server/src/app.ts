@@ -12,7 +12,6 @@ import { registerHookRoutes } from './hooks/routes.js';
 import { registerKvRoutes } from './kv/routes.js';
 import { registerMcpRoutes } from './mcp/routes.js';
 import { registerMemoryRoutes } from './memories/routes.js';
-import { registerMeshRoutes } from './mesh/routes.js';
 import { registerSettingsRoutes } from './settings/routes.js';
 import { registerSnapshotRoutes } from './snapshots/routes.js';
 import { registerErrorHandler } from './plugins/error-handler.js';
@@ -57,7 +56,6 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   registerKvRoutes(app);
   registerGraphRoutes(app);
   registerSnapshotRoutes(app);
-  registerMeshRoutes(app);
   registerAdminRoutes(app);
 
   const webDist = options.webDist === undefined ? resolveWebDist(process.env) : options.webDist;

@@ -2,7 +2,7 @@
  * 服务与 MCP 端到端。
  *
  * 远端 Postgres 的隔离 schema + protocol-standin，注册固定测试账号，灌入 e2e/corpus.ts，
- * 再拉起真正的 stdio MCP，把 66 个工具和账号/钩子/隔离走一遍。
+ * 再拉起真正的 stdio MCP，把 65 个工具和账号/钩子/隔离走一遍。
  * 不碰 ~/.agent-recall，不写 public，也不打开网页。
  *
  * 运行：仓库根目录 `pnpm e2e`。失败时进程退出码为 1。
@@ -12,7 +12,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { performance } from 'node:perf_hooks';
 import type { FastifyInstance } from 'fastify';
-import { CRYSTAL_SESSION, E2E_ACCOUNT, E2E_MESH, E2E_PEER, PROJECT, SESSION } from './account.js';
+import { CRYSTAL_SESSION, E2E_ACCOUNT, E2E_PEER, PROJECT, SESSION } from './account.js';
 import { CORPUS, MARK } from './corpus.js';
 import { McpClient, type ToolResult } from './mcp-client.js';
 import { CORE_TOOLS, FULL_TOOLS, diffToolNames, standardTools } from './tools.js';
@@ -60,20 +60,16 @@ class Report {
 
 class Resources {
   dataDir = '';
-  meshDir = '';
   workDir = '';
   standin: ProtocolStandIn | null = null;
   app: FastifyInstance | null = null;
-  meshApp: FastifyInstance | null = null;
   config: AppConfig | null = null;
   base = '';
-  meshBase = '';
   cookie = '';
   token = '';
   tokenId = '';
   profileToken = '';
   peerToken = '';
-  meshToken = '';
   ids = new Map<string, string>();
   mcp: McpClient | null = null;
   peerMcp: McpClient | null = null;
@@ -84,16 +80,12 @@ class Resources {
     this.mcp = null;
     this.peerMcp = null;
     await this.app?.close().catch(() => undefined);
-    await this.meshApp?.close().catch(() => undefined);
     this.app = null;
-    this.meshApp = null;
     await this.standin?.close().catch(() => undefined);
     this.standin = null;
     if (this.dataDir) await removeDataDir(this.dataDir);
-    if (this.meshDir) await removeDataDir(this.meshDir);
     if (this.workDir) await rm(this.workDir, { recursive: true, force: true });
     this.dataDir = '';
-    this.meshDir = '';
     this.workDir = '';
   }
 }
@@ -199,7 +191,7 @@ function clearProxy(): void {
 async function scenario(report: Report, resources: Resources): Promise<void> {
   await gate(report, 'catalog matches itself', async () => {
     if (new Set(FULL_TOOLS).size !== FULL_TOOLS.length) throw new Error('FULL_TOOLS has duplicates');
-    if (FULL_TOOLS.length !== 66) throw new Error(`expected 66 tools, listed ${String(FULL_TOOLS.length)}`);
+    if (FULL_TOOLS.length !== 65) throw new Error(`expected 65 tools, listed ${String(FULL_TOOLS.length)}`);
     if (CORE_TOOLS.length !== 12) throw new Error(`core ${String(CORE_TOOLS.length)}`);
     if (standardTools().length !== 25) throw new Error(`standard ${String(standardTools().length)}`);
     for (const name of standardTools()) {
@@ -210,7 +202,6 @@ async function scenario(report: Report, resources: Resources): Promise<void> {
   await gate(report, 'boot isolated server', async () => {
     resources.standin = await startProtocolStandin();
     resources.dataDir = await makeDataDir();
-    resources.meshDir = await makeDataDir();
     resources.workDir = await mkdtemp(path.join(tmpdir(), 'agent-recall-e2e-files-'));
     resources.config = retrievalConfig(resources.standin.url);
     resources.app = await openTestApp({
@@ -219,13 +210,6 @@ async function scenario(report: Report, resources: Resources): Promise<void> {
       retrieval: createRetrieval(resources.config),
     });
     resources.base = await bind(resources.app);
-    const meshConfig = retrievalConfig(resources.standin.url);
-    resources.meshApp = await openTestApp({
-      dataDir: resources.meshDir,
-      config: meshConfig,
-      retrieval: createRetrieval(meshConfig),
-    });
-    resources.meshBase = await bind(resources.meshApp);
     const health = http(200, await call(resources.app, 'GET', '/health'), 'health');
     if (health.ok !== true) throw new Error(JSON.stringify(health));
   });
@@ -265,8 +249,6 @@ async function scenario(report: Report, resources: Resources): Promise<void> {
 
     const peer = await registerToken(app, E2E_PEER.email, E2E_PEER.password, E2E_PEER.tokenName);
     resources.peerToken = peer.token;
-    const mesh = await registerToken(resources.meshApp!, E2E_MESH.email, E2E_MESH.password, E2E_MESH.tokenName);
-    resources.meshToken = mesh.token;
 
     const mcpClient = http(
       201,
@@ -685,7 +667,7 @@ async function scenario(report: Report, resources: Resources): Promise<void> {
     if ((again.memory as { id?: string }).id !== summary.id) throw new Error('crystallize was not idempotent');
   });
 
-  await report.step('mcp share, feed, mesh', async () => {
+  await report.step('mcp share and feed', async () => {
     const app = primary(resources);
     const shared = obj(
       await mcp().call('memory_team_share', { id: id('share'), email: E2E_PEER.email }),
@@ -727,23 +709,6 @@ async function scenario(report: Report, resources: Resources): Promise<void> {
     const copies = asMemories(feed, 'feed').filter((memory) => String(memory.content ?? '').includes(MARK.share));
     if (copies.length !== 1) throw new Error(`feed copies ${String(copies.length)}`);
     lacks(String(copies[0]?.content), MARK.shareSecret);
-    http(
-      201,
-      await call(resources.meshApp!, 'POST', '/api/memories', {
-        token: resources.meshToken,
-        payload: { content: `E2E网格标记-${MARK.mesh} 来自另一台服务`, tags: ['e2e', 'mesh'] },
-      }),
-      'mesh memory',
-    );
-    const synced = obj(
-      await mcp().call('memory_mesh_sync', { peerUrl: resources.meshBase, peerToken: resources.meshToken }),
-      'mesh',
-    );
-    if (Number(synced.imported) < 1 || Number(synced.peerCount) < 1) throw new Error(JSON.stringify(synced));
-    const recalled = await mcp().call('memory_recall', { query: MARK.mesh });
-    has(recalled, MARK.mesh);
-    const blocked = await mcp().fail('memory_mesh_sync', { peerUrl: 'http://8.8.8.8', peerToken: 'x' });
-    if (!blocked.includes('API 400')) throw new Error(blocked);
   });
 
   await report.step('mcp obsidian export and snapshot restore', async () => {

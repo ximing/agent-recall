@@ -17,13 +17,6 @@ export const E2E_PEER = {
   tokenName: 'e2e-peer',
 } as const;
 
-/** 另一台临时服务上的用户，只给 mesh 同步当 peer。 */
-export const E2E_MESH = {
-  email: 'e2e-mesh@agent-recall.test',
-  password: 'e2e-password-mesh',
-  tokenName: 'e2e-mesh',
-} as const;
-
 export const PROJECT = 'e2e-suite';
 export const SESSION = 'e2e-session-alpha';
 export const CRYSTAL_SESSION = 'e2e-session-crystal';

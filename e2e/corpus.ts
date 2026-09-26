@@ -23,7 +23,6 @@ export const MARK = {
   bridge: '月白',
   share: '霁青',
   shareSecret: 'sk-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
-  mesh: '天青',
   dedupe: '玄色',
   remember: '绛紫',
   sketch: '茶白',

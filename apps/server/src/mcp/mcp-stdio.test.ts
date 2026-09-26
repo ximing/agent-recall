@@ -159,7 +159,6 @@ describe('mcp stdio', () => {
           'memory_lease',
           'memory_lesson_delete',
           'memory_lesson_recall',
-          'memory_mesh_sync',
           'memory_next',
           'memory_obsidian_export',
           'memory_patterns',
@@ -297,7 +296,7 @@ describe('mcp stdio', () => {
     const listed = await call(app, 'GET', '/api/mcp/tools?profile=full', { token: secret });
     expect(listed.status).toBe(200);
     const names = ((listed.body as { tools?: { name: string }[] }).tools ?? []).map((tool) => tool.name);
-    expect(names).toHaveLength(63);
+    expect(names).toHaveLength(62);
     expect(names).not.toContain('memory_compress_file');
     expect(names).not.toContain('memory_claude_bridge_sync');
     expect(names).not.toContain('memory_obsidian_export');

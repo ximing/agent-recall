@@ -31,7 +31,6 @@
 | `GET` `PUT` `DELETE /api/kv/:namespace/:key`，`GET /api/kv/:namespace`，`POST .../append` | 两者 | KV：槽位、信号、档案、租约 |
 | `GET /api/graph/query`，`GET /api/memories/:id/relations` | 两者 | 关系图 |
 | `POST` `GET /api/snapshots`，`POST /api/snapshots/:id/restore` | 两者 | 快照与恢复 |
-| `POST /api/mesh/sync` | 两者 | 和另一台服务器同步。对端必须是内网或本机 |
 | `GET /api/admin/diagnose`，`POST /api/admin/heal`，`GET /api/audit` | 两者 | 体检、修复、审计。按当前用户，不是全局管理员 |
 
 导出格式是 `agent-recall/v1`。导入冲突策略为 skip、merge、replace。

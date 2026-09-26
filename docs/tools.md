@@ -1,6 +1,6 @@
 # MCP 工具
 
-66 个 `memory_*` 工具，八组。日常先用 README 里的 7 个。这里是全部名单。
+65 个 `memory_*` 工具，八组。日常先用 README 里的 7 个。这里是全部名单。
 
 参数和取舍写在工具自己的 description 里，agent 调工具时能看见。网页首页有同一份名单，可以按名字、用途或档位筛选。
 
@@ -105,7 +105,6 @@
 
 | 工具 | 档位 | 作用 |
 |---|---|---|
-| `memory_mesh_sync` | full | 和另一台 agent-recall 同步。对端地址必须是内网或本机 |
 | `memory_team_share` | full | 按邮箱向队友发送邀请。对方接受后才会复制进对方的库；复制时会做隐私清洗，并带上 `shared` 标签 |
 | `memory_team_feed` | full | 别人分给你的记忆 |
 | `memory_obsidian_export` | full | 每条记忆一个带 frontmatter 的 Markdown 文件，写在本机 |

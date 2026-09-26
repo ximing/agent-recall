@@ -657,19 +657,6 @@ const TOOLS = [
   },
   // ---- Sharing -------------------------------------------------------------
   {
-    name: 'memory_mesh_sync',
-    description: 'Synchronize memories with a peer agent-recall server (mesh replication). strategy controls duplicate handling.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        peerUrl: { type: 'string', description: 'Base URL of the peer server' },
-        peerToken: { type: 'string', description: 'Bearer token for the peer server' },
-        strategy: { type: 'string', enum: IMPORT_STRATEGIES, description: 'Duplicate handling strategy' },
-      },
-      required: ['peerUrl', 'peerToken'],
-    },
-  },
-  {
     name: 'memory_team_share',
     description:
       'Send an invitation to share a memory with a teammate by email. The teammate must accept before it appears in memory_team_feed.',
@@ -1466,15 +1453,6 @@ async function callTool(params: Record<string, unknown>): Promise<unknown> {
       return textResult(await recallBody(args, { tags: ['vision'] }));
 
     // ---- Sharing -----------------------------------------------------------
-
-    case 'memory_mesh_sync': {
-      const peerUrl = requiredString(args, 'peerUrl');
-      const peerToken = requiredString(args, 'peerToken');
-      const body: Record<string, unknown> = { peerUrl, peerToken };
-      const strategy = optionalEnum(args, 'strategy', IMPORT_STRATEGIES);
-      if (strategy !== undefined) body.strategy = strategy;
-      return textResult(await api('/api/mesh/sync', { method: 'POST', body }));
-    }
 
     case 'memory_team_share': {
       const id = requiredUuid(args, 'id');

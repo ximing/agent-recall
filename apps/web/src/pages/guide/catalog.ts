@@ -151,9 +151,8 @@ export const TOOL_GROUPS: readonly GuideGroup[] = [
   {
     id: 'share',
     title: '共享与导出',
-    intro: '分给队友、和另一台服务器同步，或导出成 Obsidian 笔记。',
+    intro: '分给队友，或导出成 Obsidian 笔记。',
     tools: [
-      { name: 'memory_mesh_sync', summary: '和另一台 agent-recall 同步。strategy 决定重复怎么处理。' },
       { name: 'memory_team_share', summary: '按邮箱发送邀请。队友接受后才会出现在共享列表里。' },
       { name: 'memory_team_feed', summary: '看别人分给你的记忆。' },
       { name: 'memory_obsidian_export', summary: '每条记忆写成一个带 frontmatter 的 Markdown 文件。' },
@@ -179,7 +178,7 @@ export const TOOL_COUNT = TOOL_GROUPS.reduce((count, group) => count + group.too
 
 const listedNames = TOOL_GROUPS.flatMap((group) => group.tools.map((tool) => tool.name));
 const tierCount = (tier: ToolTier) => listedNames.filter((name) => toolTier(name) === tier).length;
-if (listedNames.length !== 66 || tierCount('core') !== 12 || tierCount('standard') !== 13) {
+if (listedNames.length !== 65 || tierCount('core') !== 12 || tierCount('standard') !== 13) {
   throw new Error(
     `tool tiers drifted: ${String(listedNames.length)} tools, core ${String(tierCount('core'))}, standard ${String(tierCount('standard'))}`,
   );

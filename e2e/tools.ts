@@ -89,7 +89,6 @@ export const FULL_TOOLS = [
   'memory_commits',
   'memory_file_history',
   'memory_vision_search',
-  'memory_mesh_sync',
   'memory_team_share',
   'memory_team_feed',
   'memory_obsidian_export',

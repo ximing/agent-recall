@@ -34,11 +34,6 @@ export class OpsService extends Service {
   invites: ShareInvitePublic[] = [];
   feed: MemoryPublic[] = [];
 
-  peerUrl = 'http://127.0.0.1:8787';
-  peerToken = '';
-  meshStrategy: ImportStrategy = 'skip';
-  meshNote: string | null = null;
-
   assign(partial: Partial<OpsService>): void {
     Object.assign(this, partial);
   }
@@ -201,24 +196,6 @@ export class OpsService extends Service {
       await this.loadFeed();
     } catch (err) {
       this.error = errorMessage(err, '拒绝分享失败');
-    }
-  }
-
-  async meshSync(): Promise<void> {
-    const peerUrl = this.peerUrl.trim();
-    const peerToken = this.peerToken.trim();
-    if (!peerUrl || !peerToken) {
-      this.error = '填写对端地址和令牌';
-      return;
-    }
-    this.error = null;
-    this.meshNote = null;
-    try {
-      const result = await api.meshSync({ peerUrl, peerToken, strategy: this.meshStrategy });
-      this.meshNote = `对端 ${result.peerCount} 条，导入 ${result.imported}，跳过 ${result.skipped}，替换 ${result.replaced}。`;
-      this.peerToken = '';
-    } catch (err) {
-      this.error = errorMessage(err, '同步失败');
     }
   }
 }
