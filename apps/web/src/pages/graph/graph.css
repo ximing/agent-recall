@@ -42,7 +42,7 @@
 .graph-legend .dot { width: 8px; height: 8px; border-radius: 50%; }
 .node-panel {
   position: sticky;
-  top: 24px;
+  top: 16px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);

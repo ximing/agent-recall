@@ -3,7 +3,7 @@
   position: fixed;
   inset: 0;
   z-index: 60;
-  background: rgba(20, 18, 40, .32);
+  background: rgba(10, 10, 12, .34);
   backdrop-filter: blur(2px);
   animation: fade-in .25s ease both;
 }
@@ -14,7 +14,7 @@
   width: min(520px, 92vw);
   background: var(--surface);
   border-left: 1px solid var(--line);
-  box-shadow: -12px 0 48px rgba(20, 18, 40, .18);
+  box-shadow: -12px 0 48px rgba(10, 10, 12, .16);
   display: flex;
   flex-direction: column;
   animation: drawer-in .28s cubic-bezier(.32, .72, .24, 1) both;

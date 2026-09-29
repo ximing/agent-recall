@@ -1,14 +1,14 @@
 /* ============ 状态页 ============ */
-/* 左侧导航吸附、右侧内容滚动，两者之间不加框线 */
+/* 左侧 source-list 导航吸附、右侧内容滚动 */
 .state-split {
   display: grid;
-  grid-template-columns: 176px 1fr;
-  gap: 28px;
+  grid-template-columns: 168px 1fr;
+  gap: 20px;
   align-items: start;
 }
 .state-nav {
   position: sticky;
-  top: 24px;
+  top: 16px;
   display: flex;
   flex-direction: column;
   gap: 1px;
@@ -17,22 +17,20 @@
   display: flex;
   width: 100%;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
   border: none;
   background: transparent;
   color: var(--ink-2);
-  font-size: 13.5px;
+  font-size: 13px;
   text-align: left;
-  padding: 7px 12px;
+  padding: 6px 10px;
   border-radius: var(--radius-sm);
-  border-left: 2px solid transparent;
   transition: background-color .12s ease, color .12s ease;
 }
 .state-nav button:hover { background: var(--surface-2); color: var(--ink); }
 .state-nav button.active {
   color: var(--accent);
   font-weight: 500;
-  border-left-color: var(--accent);
   background: var(--accent-soft);
 }
 .state-nav button svg { flex: none; }
@@ -40,7 +38,7 @@
   font-size: 11px;
   color: var(--ink-3);
   letter-spacing: .12em;
-  padding: 12px 12px 4px;
+  padding: 10px 10px 3px;
 }
 .state-nav .nav-group:first-child { padding-top: 2px; }
 .state-content { min-width: 0; }
@@ -50,7 +48,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 22px;
+  padding: 10px 18px;
   border-bottom: 1px solid var(--line);
   transition: background-color .12s ease;
 }
@@ -65,7 +63,7 @@
   background: var(--surface);
   border-radius: 999px;
   font-size: 12px;
-  padding: 3px 11px;
+  padding: 2px 10px;
   color: var(--ink-2);
   cursor: pointer;
   flex: none;
@@ -75,16 +73,16 @@
 .status-pill.s-blocked { color: var(--danger); border-color: var(--danger-line); background: var(--danger-soft); }
 
 /* 简报分节 */
-.brief-section { padding: 18px 22px; border-bottom: 1px solid var(--line); }
+.brief-section { padding: 14px 18px; border-bottom: 1px solid var(--line); }
 .brief-section:last-child { border-bottom: none; }
 .brief-section h3 {
   font-size: 12px;
   font-weight: 500;
   color: var(--ink-3);
   letter-spacing: .1em;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
-.brief-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.brief-list { list-style: none; display: flex; flex-direction: column; gap: 7px; }
 .brief-list li { display: flex; gap: 10px; align-items: baseline; font-size: 14px; }
 .brief-list .dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); align-self: center; }
 .brief-list .tail { margin-left: auto; flex: none; font-size: 12px; color: var(--ink-3); }
@@ -105,7 +103,7 @@
   min-width: 220px;
   font-family: var(--font-mono);
   font-size: 12.5px;
-  color: var(--ink-2);
+  color: var(--ink);
   white-space: pre-wrap;
   word-break: break-word;
   line-height: 1.6;

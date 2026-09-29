@@ -3,12 +3,13 @@ import { observer, useService } from '@rabjs/react';
 import { useMemo } from 'react';
 import { GraphService } from '../graph.service';
 
+/* 取两套主题中间档的明度，保证白底与炭灰底上都可读 */
 const KIND_COLOR: Record<GraphNode['kind'], string> = {
-  memory: '#6C53F0',
-  project: '#0FA8A0',
-  tag: '#B8860B',
-  session: '#C94FD8',
-  type: '#7A6FF0',
+  memory: '#7B68E6',
+  project: '#1FA398',
+  tag: '#B07E1F',
+  session: '#C95CB0',
+  type: '#4F7FD9',
 };
 
 const KIND_RADIUS: Record<GraphNode['kind'], number> = {

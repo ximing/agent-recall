@@ -8,39 +8,26 @@ export const StatsBar = observer(function StatsBar() {
   const stats = service.stats;
   if (!stats) return null;
   return (
-    <div className="stat-strip">
-      <div className="stat-cell">
-        <p className="num">{stats.total}</p>
-        <p className="label">记忆总数</p>
-      </div>
-      <div className="stat-cell">
-        <p className="num">
-          {stats.createdLast7d}
-          <small>近 7 天</small>
-        </p>
-        <p className="label">新增</p>
-      </div>
-      <div className="stat-cell">
-        <p className="num">{stats.expired}</p>
-        <p className="label">已过期</p>
-      </div>
-      <div className="stat-cell">
-        <p className="num">{stats.sessions}</p>
-        <p className="label">会话数</p>
-      </div>
-      <div className="stat-cell" style={{ flex: 2 }}>
-        <p className="label" style={{ marginBottom: 2 }}>
-          按类型
-        </p>
-        <div className="sub">
-          {MEMORY_TYPES.filter((type) => (stats.byType[type] ?? 0) > 0).map((type) => (
-            <span key={type} className="mini-tag">
-              {TYPE_LABEL[type]} {stats.byType[type]}
-            </span>
-          ))}
-          {Object.keys(stats.byType).length === 0 ? <span className="composer-hint">暂无</span> : null}
-        </div>
-      </div>
+    <div className="stats-inline">
+      <span>
+        <b>{stats.total}</b> 总数
+      </span>
+      <span>
+        <b>{stats.createdLast7d}</b> 近 7 天
+      </span>
+      <span>
+        <b>{stats.expired}</b> 已过期
+      </span>
+      <span>
+        <b>{stats.sessions}</b> 会话
+      </span>
+      <span className="types">
+        {MEMORY_TYPES.filter((type) => (stats.byType[type] ?? 0) > 0).map((type) => (
+          <span key={type} className="mini-tag">
+            {TYPE_LABEL[type]} {stats.byType[type]}
+          </span>
+        ))}
+      </span>
     </div>
   );
 });

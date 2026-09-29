@@ -106,6 +106,11 @@ const SessionsPage = observer(function SessionsPage() {
                       <span className="composer-hint">
                         {formatTime(active.firstAt)} ~ {formatTime(active.lastAt)}
                       </span>
+                      {!service.detailLoading ? (
+                        <span className="composer-hint">
+                          {service.activeMemories.length} 条记忆 · {hookCount} 钩子观察 · {summaryCount} 摘要
+                        </span>
+                      ) : null}
                     </div>
                   </div>
                   <div className="head-actions">
@@ -130,20 +135,6 @@ const SessionsPage = observer(function SessionsPage() {
                   <p className="composer-hint">时间线加载中…</p>
                 ) : (
                   <>
-                    <div className="sess-summary-strip">
-                      <div>
-                        <p className="num">{service.activeMemories.length}</p>
-                        <p className="label">记忆</p>
-                      </div>
-                      <div>
-                        <p className="num">{hookCount}</p>
-                        <p className="label">钩子观察</p>
-                      </div>
-                      <div>
-                        <p className="num">{summaryCount}</p>
-                        <p className="label">摘要</p>
-                      </div>
-                    </div>
                     {service.activeMemories.length === 0 ? (
                       <p className="composer-hint">这个会话没有记忆。</p>
                     ) : (

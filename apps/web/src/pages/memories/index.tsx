@@ -1,7 +1,7 @@
 import { MEMORY_TYPES, type MemoryType, type Origin } from '@agent-recall/dto';
 import { bindServices, observer, useService } from '@rabjs/react';
 import { ChevronDown, Download, ListFilter, Plus, Search, Sparkles, Upload } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { TYPE_LABEL } from '@/utils/labels';
 import { MemoryDrawer } from './MemoryDrawer';
 import { BatchBar } from './components/batch-bar';
@@ -31,10 +31,28 @@ const SORT_OPTIONS: Array<{ key: MemorySort; label: string }> = [
 const MemoriesPage = observer(function MemoriesPage() {
   const service = useService(MemoriesService);
   const [advOpen, setAdvOpen] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     void service.load();
     return () => service.clearSearch();
+  }, [service]);
+
+  // 工具惯例：/ 聚焦搜索，Esc 清空并失焦
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      const target = event.target as HTMLElement;
+      const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) || target.isContentEditable;
+      if (event.key === '/' && !typing) {
+        event.preventDefault();
+        searchRef.current?.focus();
+      } else if (event.key === 'Escape' && target === searchRef.current) {
+        if (service.query) service.clearSearch();
+        searchRef.current?.blur();
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
   }, [service]);
 
   const picked: Array<{ key: string; label: string; clear: () => void }> = [];
@@ -101,10 +119,12 @@ const MemoriesPage = observer(function MemoriesPage() {
         <div className="search-box">
           <Search size={15} strokeWidth={1.6} />
           <input
+            ref={searchRef}
             placeholder={service.searchMode === 'smart' ? '精排搜索，候选再交给 rerank…' : '搜索记忆，走 BM25 + 向量召回…'}
             value={service.query}
             onChange={(event) => service.setQuery(event.target.value)}
           />
+          {service.query ? null : <span className="kbd" aria-hidden="true">/</span>}
           <div className="mode-seg" role="group" aria-label="搜索模式">
             {(
               [
