@@ -61,7 +61,7 @@ const StatePage = observer(function StatePage() {
   }, [service]);
 
   return (
-    <section className="page">
+    <section className="page flush">
       <header className="page-head">
         <div>
           <h1>状态</h1>

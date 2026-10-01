@@ -1,7 +1,8 @@
 import { MEMORY_TYPES, type MemoryType, type Origin } from '@agent-recall/dto';
 import { bindServices, observer, useService } from '@rabjs/react';
-import { ChevronDown, Download, ListFilter, Plus, Search, Sparkles, Upload } from 'lucide-react';
+import { Download, ListFilter, Plus, Search, Sparkles, Upload } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { Select } from '@/components/ui/Select';
 import { TYPE_LABEL } from '@/utils/labels';
 import { MemoryDrawer } from './MemoryDrawer';
 import { BatchBar } from './components/batch-bar';
@@ -22,10 +23,10 @@ const ORIGIN_FILTERS: Array<{ key: Origin | 'all'; label: string }> = [
   { key: 'summary', label: '摘要' },
 ];
 
-const SORT_OPTIONS: Array<{ key: MemorySort; label: string }> = [
-  { key: 'created-desc', label: '最新创建' },
-  { key: 'updated-desc', label: '最近更新' },
-  { key: 'created-asc', label: '最早创建' },
+const SORT_OPTIONS: Array<{ value: MemorySort; label: string }> = [
+  { value: 'created-desc', label: '最新创建' },
+  { value: 'updated-desc', label: '最近更新' },
+  { value: 'created-asc', label: '最早创建' },
 ];
 
 const MemoriesPage = observer(function MemoriesPage() {
@@ -174,16 +175,12 @@ const MemoriesPage = observer(function MemoriesPage() {
           {picked.length > 0 ? <span className="badge">{picked.length}</span> : null}
         </button>
         {service.isRecalling ? null : (
-          <div className="sort">
-            <select value={service.sort} onChange={(event) => service.setSort(event.target.value as MemorySort)}>
-              {SORT_OPTIONS.map((option) => (
-                <option key={option.key} value={option.key}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <ChevronDown size={12} strokeWidth={1.8} />
-          </div>
+          <Select
+            ariaLabel="排序方式"
+            value={service.sort}
+            options={SORT_OPTIONS}
+            onChange={(next) => service.setSort(next as MemorySort)}
+          />
         )}
       </div>
 

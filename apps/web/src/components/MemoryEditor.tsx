@@ -8,6 +8,8 @@ import { useEffect, useReducer, useRef, useState } from 'react';
 import { Markdown } from 'tiptap-markdown';
 import { fromDateInputValue, toDateInputValue } from '@/utils/format';
 import { TYPE_LABEL } from '@/utils/labels';
+import { DateField } from '@/components/ui/DateField';
+import { Select } from '@/components/ui/Select';
 import './editor.css';
 
 /** 提交时随内容一起带回的元数据；expiresAt 为 null 表示清除 */
@@ -159,14 +161,12 @@ export function MemoryEditor({
       <div className="meta-fields">
         <label className="meta-field">
           <span>类型</span>
-          <select className="field" value={type} onChange={(event) => setType(event.target.value as MemoryType | '')}>
-            <option value="">未分类</option>
-            {MEMORY_TYPES.map((value) => (
-              <option key={value} value={value}>
-                {TYPE_LABEL[value]}
-              </option>
-            ))}
-          </select>
+          <Select
+            ariaLabel="记忆类型"
+            value={type}
+            options={[{ value: '', label: '未分类' }, ...MEMORY_TYPES.map((value) => ({ value, label: TYPE_LABEL[value] }))]}
+            onChange={(next) => setType(next as MemoryType | '')}
+          />
         </label>
         <label className="meta-field grow">
           <span>标签（逗号分隔）</span>
@@ -196,12 +196,7 @@ export function MemoryEditor({
         ) : null}
         <label className="meta-field">
           <span>过期时间</span>
-          <input
-            className="field"
-            type="date"
-            value={expiresAt}
-            onChange={(event) => setExpiresAt(event.target.value)}
-          />
+          <DateField ariaLabel="过期时间" value={expiresAt} placeholder="不过期" onChange={setExpiresAt} />
         </label>
       </div>
       <div className="weditor-foot">

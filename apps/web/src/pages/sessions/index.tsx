@@ -28,7 +28,7 @@ const SessionsPage = observer(function SessionsPage() {
   const summaryCount = service.activeMemories.filter((memory) => memory.origin === 'summary').length;
 
   return (
-    <section className="page">
+    <section className="page flush">
       <header className="page-head">
         <div>
           <h1>会话</h1>

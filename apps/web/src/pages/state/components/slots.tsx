@@ -12,28 +12,29 @@ export const SlotsPanel = observer(function SlotsPanel() {
           <p className="sub">命名 JSON 插槽，代理启动时按名读取；「追加」把新值并进数组。</p>
         </div>
       </div>
-      <div className="create-line">
-        <input
-          className="field"
-          style={{ maxWidth: 220 }}
-          placeholder="槽位名"
-          value={service.slotName}
-          onChange={(event) => service.assign({ slotName: event.target.value })}
-        />
+      <div className="create-form">
+        <div className="row">
+          <input
+            className="field"
+            placeholder="槽位名"
+            value={service.slotName}
+            onChange={(event) => service.assign({ slotName: event.target.value })}
+          />
+          <span className="row-actions-inline">
+            <button type="button" className="btn primary" onClick={() => void service.saveSlot(false)}>
+              写入
+            </button>
+            <button type="button" className="btn" onClick={() => void service.saveSlot(true)}>
+              追加
+            </button>
+          </span>
+        </div>
         <textarea
           className="field json-field"
           placeholder="JSON。追加时如果不是 JSON，会按字符串放进去。"
           value={service.slotJson}
           onChange={(event) => service.assign({ slotJson: event.target.value })}
         />
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button type="button" className="btn primary" onClick={() => void service.saveSlot(false)}>
-            写入
-          </button>
-          <button type="button" className="btn" onClick={() => void service.saveSlot(true)}>
-            追加
-          </button>
-        </div>
       </div>
       <EntryList
         empty="还没有槽位。"

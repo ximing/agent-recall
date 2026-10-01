@@ -303,7 +303,7 @@ a.brand { display: block; text-decoration: none; color: inherit; }
 
 /* ---- 舞台：内容居中，三档宽度 ---- */
 .stage {
-  padding: 44px 48px 96px;
+  padding: 36px 36px 80px;
   display: flex;
   justify-content: center;
 }
@@ -311,6 +311,11 @@ a.brand { display: block; text-decoration: none; color: inherit; }
   width: 100%;
   max-width: 1120px;
   animation: stage-in .45s ease both;
+}
+/* 带二级导航的页面（会话/状态）：贴左对齐、吃满宽度，缩小与一级导航的间距 */
+.page.flush {
+  margin-right: auto;
+  max-width: none;
 }
 .page.narrow { max-width: 760px; }
 .page.wide { max-width: 1360px; }
@@ -447,6 +452,22 @@ textarea.field { resize: vertical; min-height: 88px; line-height: 1.6; }
 }
 .create-line .field { flex: 1; min-width: 140px; padding: 7px 11px; font-size: 13px; }
 .create-line .field.grow-none, .create-line .btn { flex: none; }
+
+/* 纵向新建表单：名字 + 按钮一行，JSON/正文 textarea 独占一行 */
+.create-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 18px;
+  margin-top: 12px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-2);
+}
+.create-form .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.create-form .row .field { flex: 1; min-width: 160px; padding: 7px 11px; font-size: 13px; }
+.create-form .row .row-actions-inline { flex: none; display: flex; gap: 8px; }
+.create-form .json-field { min-height: 72px; }
 
 /* chips */
 .chips { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -631,6 +652,6 @@ textarea.field { resize: vertical; min-height: 88px; line-height: 1.6; }
     border-bottom: 1px solid var(--line);
   }
   .stage { padding: 28px 20px 64px; }
-  .page, .page.narrow, .page.wide { max-width: 100%; }
+  .page, .page.narrow, .page.wide, .page.flush { max-width: 100%; }
   .page-head { flex-direction: column; align-items: flex-start; }
 }

@@ -1,0 +1,158 @@
+/* ============ 通用表单组件：Select / DateField ============ */
+.ui-select, .ui-date { position: relative; }
+
+.ui-select-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  padding: 7px 11px;
+  font-size: 13px;
+  white-space: nowrap;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.ui-select-btn:hover { border-color: var(--ink-3); }
+.ui-select-btn:focus-visible,
+.ui-select-btn[aria-expanded="true"] {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.ui-select-btn > svg { color: var(--ink-3); flex: none; }
+.ui-select-btn.is-empty .ui-select-label { color: var(--ink-3); }
+.ui-select-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  text-align: left;
+}
+
+.ui-select-pop {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 40;
+  min-width: 100%;
+  width: max-content;
+  max-width: 260px;
+  max-height: 264px;
+  overflow-y: auto;
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--glow);
+  padding: 4px;
+}
+.ui-select-pop button {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: none;
+  background: none;
+  border-radius: 5px;
+  padding: 6px 10px;
+  font-size: 13px;
+  color: var(--ink);
+  white-space: nowrap;
+  text-align: left;
+}
+.ui-select-pop button.cursor { background: var(--surface-2); }
+.ui-select-pop button.active { color: var(--accent); font-weight: 500; }
+.ui-select-pop button.active svg { color: var(--accent); flex: none; }
+
+/* 日期选择 */
+.ui-date-clear {
+  color: var(--ink-3);
+  font-size: 11px;
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+.ui-date-clear:hover { color: var(--danger); background: var(--danger-soft); }
+
+.ui-date-pop {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 40;
+  width: 252px;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--glow);
+  padding: 10px;
+}
+.ui-date-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.ui-date-head button {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--ink-2);
+}
+.ui-date-head button:hover { background: var(--surface-2); color: var(--ink); }
+.ui-date-title { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.ui-date-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+.ui-date-wd {
+  text-align: center;
+  font-size: 11px;
+  color: var(--ink-3);
+  padding: 4px 0;
+}
+.ui-date-cell {
+  border: none;
+  background: none;
+  height: 30px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  transition: background-color .12s ease;
+}
+.ui-date-cell:hover { background: var(--surface-2); }
+.ui-date-cell.outside { color: var(--ink-3); opacity: .55; }
+.ui-date-cell.today { box-shadow: inset 0 0 0 1px var(--accent-line); }
+.ui-date-cell.active {
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+.ui-date-cell.active:hover { background: var(--accent); }
+
+.ui-date-foot {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+.ui-date-foot button {
+  border: none;
+  background: none;
+  color: var(--accent);
+  font-size: 12.5px;
+  padding: 2px 6px;
+  border-radius: 5px;
+}
+.ui-date-foot button:hover { background: var(--accent-soft); }

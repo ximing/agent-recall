@@ -117,28 +117,6 @@
   place-items: center;
   padding: 0 4px;
 }
-.sort { position: relative; flex: none; }
-.sort select {
-  appearance: none;
-  border: 1px solid var(--line);
-  background: var(--surface);
-  color: var(--ink-2);
-  border-radius: 999px;
-  padding: 4px 28px 4px 12px;
-  font-size: 12.5px;
-  font-family: inherit;
-  cursor: pointer;
-  transition: border-color .15s ease, color .15s ease;
-}
-.sort select:hover { border-color: var(--ink-3); color: var(--ink); }
-.sort svg {
-  position: absolute;
-  right: 10px; top: 50%;
-  transform: translateY(-50%);
-  color: var(--ink-3);
-  pointer-events: none;
-}
-
 /* 高级筛选面板 */
 .adv-panel {
   padding: 14px 18px;
@@ -194,24 +172,33 @@
 }
 .recall-hint .clear:hover { text-decoration: underline; }
 
-/* 记忆列表：分组嵌入式（一张面板 + 发丝分隔线），hover 只换底色 */
-.mlist {
+/* 记忆列表：长条卡片，左侧来源色条 */
+.mlist { display: flex; flex-direction: column; gap: 10px; }
+.mrow {
+  position: relative;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  overflow: hidden;
-  transition: background-color .35s ease, border-color .35s ease;
-}
-.mrow {
-  position: relative;
-  padding: 11px 16px 10px;
-  border-bottom: 1px solid var(--line);
+  padding: 13px 18px 11px 24px;
   cursor: pointer;
-  transition: background-color .12s ease;
+  transition: background-color .35s ease, border-color .2s ease, box-shadow .2s ease;
 }
-.mrow:last-child { border-bottom: none; }
-.mrow:hover { background: var(--surface-2); }
+.mrow:hover { box-shadow: var(--glow); }
+.mrow::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 13px;
+  bottom: 13px;
+  width: 4px;
+  border-radius: 0 4px 4px 0;
+  background: var(--tab-web);
+}
+.mrow.origin-agent::before { background: var(--tab-agent); }
+.mrow.origin-hook::before { background: var(--tab-hook); }
+.mrow.origin-import::before { background: var(--tab-import); }
+.mrow.origin-summary::before { background: var(--tab-summary); }
 .mrow.expired { opacity: .58; }
 .mrow.expired:hover { opacity: 1; }
 .mrow-check { flex: none; width: 14px; height: 14px; accent-color: var(--accent); cursor: pointer; margin: 0; }
@@ -227,7 +214,8 @@
 .mrow:hover .mrow-actions, .mrow:focus-within .mrow-actions { opacity: 1; }
 
 /* 删除确认态 */
-.mrow.confirming { background: var(--danger-soft); cursor: default; }
+.mrow.confirming { border-color: var(--danger-line); background: var(--danger-soft); cursor: default; }
+.mrow.confirming:hover { box-shadow: var(--shadow); }
 .mrow .confirm-row {
   display: flex;
   align-items: center;

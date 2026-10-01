@@ -19,7 +19,7 @@ export const DiagnosePanel = observer(function DiagnosePanel() {
                 ? `诊断发现 ${problems} 项问题`
                 : '诊断通过，没有发现问题'}
           </p>
-          <p className="sub">诊断会看未索引、过期记忆，以及检索服务有没有配上。自愈会补索引，并清除过期记忆和长期未命中的钩子碎片。</p>
+          <p className="sub">诊断会看未索引、过期记忆，以及检索服务有没有配上。服务每小时自动补索引并执行自动遗忘。自愈会马上做同样的事。</p>
         </div>
         <div className="head-actions">
           <button type="button" className="btn" onClick={() => void service.loadDiagnose()}>

@@ -12,23 +12,26 @@ export const CheckpointsPanel = observer(function CheckpointsPanel() {
           <p className="sub">给当前工作态拍一个命名快照，随时可以回看或按名恢复。</p>
         </div>
       </div>
-      <div className="create-line">
-        <input
-          className="field"
-          style={{ maxWidth: 220 }}
-          placeholder="检查点名"
-          value={service.checkpointName}
-          onChange={(event) => service.assign({ checkpointName: event.target.value })}
-        />
+      <div className="create-form">
+        <div className="row">
+          <input
+            className="field"
+            placeholder="检查点名"
+            value={service.checkpointName}
+            onChange={(event) => service.assign({ checkpointName: event.target.value })}
+          />
+          <span className="row-actions-inline">
+            <button type="button" className="btn primary" onClick={() => void service.saveCheckpoint()}>
+              写入
+            </button>
+          </span>
+        </div>
         <textarea
           className="field json-field"
           placeholder="状态 JSON"
           value={service.checkpointJson}
           onChange={(event) => service.assign({ checkpointJson: event.target.value })}
         />
-        <button type="button" className="btn primary" onClick={() => void service.saveCheckpoint()}>
-          写入
-        </button>
       </div>
       <EntryList
         empty="还没有检查点。"

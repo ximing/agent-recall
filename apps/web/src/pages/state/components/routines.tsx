@@ -12,26 +12,29 @@ export const RoutinesPanel = observer(function RoutinesPanel() {
           <p className="sub">一段可重复执行的步骤定义，写在 KV 里，代理按名运行。</p>
         </div>
       </div>
-      <div className="create-line">
-        <input
-          className="field"
-          style={{ maxWidth: 220 }}
-          placeholder="例程名"
-          value={service.routineName}
-          onChange={(event) => service.assign({ routineName: event.target.value })}
-        />
+      <div className="create-form">
+        <div className="row">
+          <input
+            className="field"
+            placeholder="例程名"
+            value={service.routineName}
+            onChange={(event) => service.assign({ routineName: event.target.value })}
+          />
+          <span className="row-actions-inline">
+            <button type="button" className="btn primary" onClick={() => void service.saveRoutine()}>
+              写入
+            </button>
+          </span>
+        </div>
         <textarea
           className="field json-field"
           placeholder='JSON，例如 {"steps":["build","test"]}'
           value={service.routineJson}
           onChange={(event) => service.assign({ routineJson: event.target.value })}
         />
-        <button type="button" className="btn primary" onClick={() => void service.saveRoutine()}>
-          写入
-        </button>
       </div>
       {service.routineOutput ? (
-        <div style={{ padding: '12px 22px 0' }}>
+        <div style={{ padding: '12px 18px 0' }}>
           <pre className="context-pre">{service.routineOutput}</pre>
         </div>
       ) : null}
