@@ -1,5 +1,6 @@
 import { Check, ChevronDown } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
+import { usePopover } from './usePopover';
 import './ui.css';
 
 export type SelectOption = { value: string; label: string };
@@ -15,26 +16,16 @@ type SelectProps = {
 
 /**
  * 设计系统自己的下拉选择：弹层跟随令牌配色，支持 Esc 关闭、
- * 方向键移动、Enter 选定、点击外部关闭。
+ * 方向键移动、Enter 选定、点击外部关闭；空间不足时自动向上翻。
  */
 export function Select({ value, options, onChange, ariaLabel, className }: SelectProps) {
-  const [open, setOpen] = useState(false);
+  const { open, flip, end, rootRef, toggle, close } = usePopover(264, 260);
   const [cursor, setCursor] = useState(-1);
-  const rootRef = useRef<HTMLDivElement>(null);
   const current = options.find((option) => option.value === value);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (event: MouseEvent): void => {
-      if (rootRef.current && !rootRef.current.contains(event.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
-  }, [open]);
 
   const pick = (next: string): void => {
     onChange(next);
-    setOpen(false);
+    close();
   };
 
   const onKeyDown = (event: React.KeyboardEvent): void => {
@@ -42,12 +33,12 @@ export function Select({ value, options, onChange, ariaLabel, className }: Selec
       if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
         event.preventDefault();
         setCursor(Math.max(0, options.findIndex((option) => option.value === value)));
-        setOpen(true);
+        toggle();
       }
       return;
     }
     if (event.key === 'Escape') {
-      setOpen(false);
+      close();
     } else if (event.key === 'ArrowDown') {
       event.preventDefault();
       setCursor((prev) => Math.min(options.length - 1, prev + 1));
@@ -70,14 +61,14 @@ export function Select({ value, options, onChange, ariaLabel, className }: Selec
         aria-label={ariaLabel}
         onClick={() => {
           setCursor(Math.max(0, options.findIndex((option) => option.value === value)));
-          setOpen(!open);
+          toggle();
         }}
       >
         <span className="ui-select-label">{current?.label ?? ''}</span>
         <ChevronDown size={13} strokeWidth={1.8} />
       </button>
       {open ? (
-        <ul className="ui-select-pop" role="listbox" aria-label={ariaLabel}>
+        <ul className={`ui-select-pop${flip ? ' up' : ''}${end ? ' end' : ''}`} role="listbox" aria-label={ariaLabel}>
           {options.map((option, index) => (
             <li key={option.value || '__empty'}>
               <button

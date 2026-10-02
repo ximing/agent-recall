@@ -1,5 +1,6 @@
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
+import { usePopover } from './usePopover';
 import './ui.css';
 
 type DateFieldProps = {
@@ -22,30 +23,13 @@ function parseValue(value: string): Date | null {
 
 /**
  * 设计系统自己的日期选择：月份网格弹层，周一起始，
- * 支持清除与「今天」快捷键，Esc / 点击外部关闭。
+ * 支持清除与「今天」快捷键，Esc / 点击外部关闭；空间不足时自动向上翻。
  */
 export function DateField({ value, onChange, placeholder = '选择日期', ariaLabel }: DateFieldProps) {
   const selected = parseValue(value);
   const today = new Date();
-  const [open, setOpen] = useState(false);
+  const { open, flip, end, rootRef, toggle, close } = usePopover(340, 252);
   const [view, setView] = useState(() => ({ year: (selected ?? today).getFullYear(), month: (selected ?? today).getMonth() }));
-  const rootRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (event: MouseEvent): void => {
-      if (rootRef.current && !rootRef.current.contains(event.target as Node)) setOpen(false);
-    };
-    const onKey = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [open]);
 
   const shiftMonth = (delta: number): void => {
     setView((prev) => {
@@ -68,7 +52,7 @@ export function DateField({ value, onChange, placeholder = '选择日期', ariaL
 
   const pick = (date: Date): void => {
     onChange(toValue(date));
-    setOpen(false);
+    close();
   };
 
   return (
@@ -82,7 +66,7 @@ export function DateField({ value, onChange, placeholder = '选择日期', ariaL
         onClick={() => {
           const base = parseValue(value) ?? new Date();
           setView({ year: base.getFullYear(), month: base.getMonth() });
-          setOpen(!open);
+          toggle();
         }}
       >
         <Calendar size={13} strokeWidth={1.8} />
@@ -102,7 +86,7 @@ export function DateField({ value, onChange, placeholder = '选择日期', ariaL
         ) : null}
       </button>
       {open ? (
-        <div className="ui-date-pop" role="dialog" aria-label="选择日期">
+        <div className={`ui-date-pop${flip ? ' up' : ''}${end ? ' end' : ''}`} role="dialog" aria-label="选择日期">
           <div className="ui-date-head">
             <button type="button" aria-label="上个月" onClick={() => shiftMonth(-1)}>
               <ChevronLeft size={14} strokeWidth={1.8} />
@@ -141,7 +125,7 @@ export function DateField({ value, onChange, placeholder = '选择日期', ariaL
               type="button"
               onClick={() => {
                 onChange('');
-                setOpen(false);
+                close();
               }}
             >
               清除
