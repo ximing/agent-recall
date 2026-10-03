@@ -31,6 +31,8 @@ type MemoryEditorProps = {
   initialExpiresAt?: string | null;
   /** 仅新建时收集项目和会话，编辑接口不改这两项 */
   allowPlacement?: boolean;
+  /** 渲染在元数据字段与底部按钮条之间（如编辑态的版本历史） */
+  belowMeta?: React.ReactNode;
   onSubmit: (markdown: string, meta: MemoryEditorMeta) => void;
   onCancel: () => void;
 };
@@ -48,6 +50,7 @@ export function MemoryEditor({
   initialTags,
   initialExpiresAt,
   allowPlacement,
+  belowMeta,
   onSubmit,
   onCancel,
 }: MemoryEditorProps) {
@@ -199,15 +202,16 @@ export function MemoryEditor({
           <DateField ariaLabel="过期时间" value={expiresAt} placeholder="不过期" onChange={setExpiresAt} />
         </label>
       </div>
+      {belowMeta}
       <div className="weditor-foot">
-        <button type="button" className="btn primary" disabled={submitting || editor.isEmpty} onClick={submit}>
-          {submitLabel}
-        </button>
+        <span className="composer-hint">⌘ + Enter 保存</span>
+        <span className="spacer" />
         <button type="button" className="btn" onClick={onCancel}>
           取消
         </button>
-        <span className="spacer" />
-        <span className="composer-hint">⌘ + Enter 保存</span>
+        <button type="button" className="btn primary" disabled={submitting || editor.isEmpty} onClick={submit}>
+          {submitLabel}
+        </button>
       </div>
     </div>
   );

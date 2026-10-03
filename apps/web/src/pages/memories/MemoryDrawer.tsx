@@ -80,6 +80,7 @@ export const MemoryDrawer = observer(function MemoryDrawer() {
                       initialTags={mode === 'edit' ? memory?.tags : undefined}
                       initialExpiresAt={mode === 'edit' ? memory?.expiresAt : undefined}
                       allowPlacement={mode === 'new'}
+                      belowMeta={mode === 'edit' ? <VersionHistory /> : null}
                       placeholder="写下一条记忆，支持 Markdown……"
                       submitLabel={mode === 'new' ? '保存记忆' : '保存为新版本'}
                       onSubmit={(markdown, meta) => {
@@ -89,7 +90,6 @@ export const MemoryDrawer = observer(function MemoryDrawer() {
                       onCancel={() => service.closeDrawer()}
                     />
                   </Suspense>
-                  {mode === 'edit' ? <VersionHistory /> : null}
                 </>
               )}
             </div>

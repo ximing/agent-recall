@@ -46,6 +46,8 @@
 }
 .drawer-close:hover { color: var(--ink); background: var(--surface-2); }
 .drawer-body { padding: 22px 24px; overflow-y: auto; flex: 1; }
+/* 编辑态：body 不再整体滚动，让编辑器铺满剩余空间 */
+.drawer-body:has(.weditor) { display: flex; flex-direction: column; overflow: hidden; }
 .drawer-foot {
   display: flex;
   align-items: center;

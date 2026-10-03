@@ -1,11 +1,18 @@
 /* ============ WYSIWYG 编辑器（TipTap，MemoryEditor） ============ */
+/* 抽屉编辑态：编辑器铺满剩余高度，内容区自滚动，底部条固定在底 */
+.weditor {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
 .weditor-foot {
   display: flex;
   align-items: center;
   gap: 8px;
   border-top: 1px solid var(--line);
   padding-top: 12px;
-  margin-top: 16px;
+  margin-top: 14px;
 }
 .weditor-foot .spacer { margin-left: auto; }
 .wtoolbar {
@@ -33,8 +40,8 @@
 .wbtn:hover { background: var(--surface-2); color: var(--ink); }
 .wbtn.active { background: var(--accent-soft); color: var(--accent); }
 .wsep { width: 1px; height: 18px; background: var(--line); margin: 0 6px; flex: none; }
-.wcontent { min-height: 160px; }
-.wcontent .ProseMirror { outline: none; min-height: 160px; }
+.wcontent { flex: 1; min-height: 120px; overflow-y: auto; }
+.wcontent .ProseMirror { outline: none; min-height: 100%; }
 .wcontent .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   color: var(--ink-3);
@@ -48,7 +55,7 @@
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
-  margin-top: 14px;
+  margin-top: 12px;
 }
 .meta-field { display: block; flex: none; }
 .meta-field.grow { flex: 1; min-width: 160px; }
