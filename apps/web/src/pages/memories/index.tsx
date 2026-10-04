@@ -176,6 +176,7 @@ const MemoriesPage = observer(function MemoriesPage() {
         </button>
         {service.isRecalling ? null : (
           <Select
+            className="sort-select"
             ariaLabel="排序方式"
             value={service.sort}
             options={SORT_OPTIONS}

@@ -408,7 +408,8 @@ a.brand { display: block; text-decoration: none; color: inherit; }
 }
 .field::placeholder { color: var(--ink-3); }
 textarea.field { resize: vertical; min-height: 88px; line-height: 1.6; }
-.field.mini { padding: 6px 11px; font-size: 13px; }
+/* mini 与 .btn 等高（7px/13px），用于和按钮并排的场景 */
+.field.mini { padding: 7px 11px; font-size: 13px; }
 
 .form-error {
   color: var(--danger);
@@ -450,7 +451,7 @@ textarea.field { resize: vertical; min-height: 88px; line-height: 1.6; }
   flex-wrap: wrap;
   align-items: center;
 }
-.create-line .field { flex: 1; min-width: 140px; padding: 7px 11px; font-size: 13px; }
+.create-line .field, .create-line .ui-select-btn { flex: 1; min-width: 140px; padding: 7px 11px; font-size: 13px; }
 .create-line .field.grow-none, .create-line .btn { flex: none; }
 
 /* 纵向新建表单：名字 + 按钮一行，JSON/正文 textarea 独占一行 */
@@ -465,7 +466,7 @@ textarea.field { resize: vertical; min-height: 88px; line-height: 1.6; }
   background: var(--surface-2);
 }
 .create-form .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.create-form .row .field { flex: 1; min-width: 160px; padding: 7px 11px; font-size: 13px; }
+.create-form .row .field, .create-form .row .ui-select-btn { flex: 1; min-width: 160px; padding: 7px 11px; font-size: 13px; }
 .create-form .row .row-actions-inline { flex: none; display: flex; gap: 8px; }
 .create-form .json-field { min-height: 72px; }
 

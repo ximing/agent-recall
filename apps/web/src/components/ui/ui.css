@@ -1,6 +1,7 @@
 /* ============ 通用表单组件：Select / DateField ============ */
 .ui-select, .ui-date { position: relative; }
 
+/* 尺寸规范：默认与 .field 一致（9px 12px / 14px），同行控件等高 */
 .ui-select-btn {
   display: inline-flex;
   align-items: center;
@@ -11,8 +12,8 @@
   border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--ink);
-  padding: 7px 11px;
-  font-size: 13px;
+  padding: 9px 12px;
+  font-size: 14px;
   white-space: nowrap;
   transition: border-color .15s ease, box-shadow .15s ease;
 }

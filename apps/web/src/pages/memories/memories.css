@@ -91,6 +91,17 @@
   margin-bottom: 10px;
 }
 .filter-bar .chip { padding: 4px 12px; font-size: 12.5px; }
+/* 排序下拉与筛选项等高：胶囊形 */
+.filter-bar .sort-select { flex: none; }
+.filter-bar .sort-select .ui-select-btn {
+  width: auto;
+  padding: 4px 12px;
+  font-size: 12.5px;
+  border-color: var(--line);
+  border-radius: 999px;
+  color: var(--ink-2);
+}
+.filter-bar .sort-select .ui-select-btn:hover { border-color: var(--ink-3); color: var(--ink); }
 .filter-bar .spacer { margin-left: auto; }
 .filter-btn {
   display: inline-flex;
