@@ -22,7 +22,7 @@ const SettingsPage = observer(function SettingsPage() {
   const settings = service.settings;
 
   return (
-    <section className="page">
+    <section className="page flush">
       <header className="page-head">
         <div>
           <h1>设置</h1>
@@ -216,7 +216,7 @@ const SettingsPage = observer(function SettingsPage() {
               </p>
             ) : null}
             {service.afResult !== null ? (
-              <p className="settings-saved" style={{ padding: '0 22px 16px', display: 'block' }}>
+              <p className="settings-saved" style={{ padding: '0 18px 14px', display: 'block' }}>
                 已清除 {service.afResult.deleted} 条（过期 {service.afResult.expired}，未命中 {service.afResult.stale}）。
               </p>
             ) : null}
@@ -233,7 +233,7 @@ const SettingsPage = observer(function SettingsPage() {
             </div>
             <p className="section-desc">每次召回的查询、策略、返回结果和耗时都会记录下来，点击行展开返回结果详情。</p>
             {service.recallLogs.length === 0 ? (
-              <div className="empty" style={{ margin: '16px 22px 20px' }}>
+              <div className="empty" style={{ margin: '14px 18px 16px' }}>
                 <p className="empty-title">还没有召回记录</p>
                 <p>在记忆页搜索一次，或让代理发起召回，这里就会出现记录。</p>
               </div>
