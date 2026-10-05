@@ -1,0 +1,23 @@
+{
+  "name": "agent-recall",
+  "owner": {
+    "name": "ximing"
+  },
+  "plugins": [
+    {
+      "name": "agent-recall",
+      "source": "./",
+      "description": "agent-recall skill for coding agents: write a short project-memory block into a target repo's CLAUDE.md and AGENTS.md so later sessions keep decisions in agent-recall.",
+      "version": "0.1.0",
+      "author": {
+        "name": "ximing"
+      },
+      "homepage": "https://github.com/ximing/agent-recall",
+      "keywords": [
+        "agent-recall",
+        "memory",
+        "skills"
+      ]
+    }
+  ]
+}

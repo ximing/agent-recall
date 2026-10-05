@@ -8,5 +8,6 @@
   },
   "license": "MIT",
   "homepage": "https://github.com/ximing/agent-recall",
-  "repository": "https://github.com/ximing/agent-recall"
+  "repository": "https://github.com/ximing/agent-recall",
+  "skills": "./skills/"
 }

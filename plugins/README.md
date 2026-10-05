@@ -170,10 +170,12 @@ plugins/
     drain.mjs                  # spool replay: node plugins/shared/drain.mjs
   claude-code/
     .claude-plugin/plugin.json
+    skills/agent-recall-init/  # installed with the Claude Code plugin
     hooks/hooks.json           # SessionStart/UserPromptSubmit/PostToolUse/SessionEnd
     scripts/*.mjs              # per-event scripts + drain.mjs
   codex/
     .codex-plugin/plugin.json
+    skills/agent-recall-init/  # installed with the Codex plugin
     hooks/hooks.json
     scripts/*.mjs              # re-export claude-code/scripts (compatible payloads)
   opencode/
@@ -181,9 +183,12 @@ plugins/
     agent-recall.ts            # self-contained capture plugin (1.x + 2.x)
     commands/recall.md
   pi/
-    package.json
+    package.json               # pi.skills includes ./skills
+    skills/agent-recall-init/
     index.ts                   # pi extension
 ```
+
+`skills/agent-recall-init/SKILL.md` at the repo root is what the root manifests install (Cursor, Kimi, OpenCode, Pi, Grok). The copies under `plugins/claude-code`, `plugins/codex`, and `plugins/pi` are the same file, so those plugin installs include the skill. Edit the root file, then copy it into those three directories.
 
 ## Differences from the old `hooks/` directory
 

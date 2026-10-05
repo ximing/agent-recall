@@ -4,6 +4,16 @@
   "private": true,
   "type": "module",
   "description": "Cloud agent memory: web management, bearer tokens, MCP, hooks, and two-path recall.",
+  "main": ".opencode/plugins/agent-recall.js",
+  "keywords": [
+    "pi-package",
+    "skills"
+  ],
+  "pi": {
+    "skills": [
+      "./skills"
+    ]
+  },
   "packageManager": "pnpm@10.30.3",
   "engines": {
     "node": ">=22"

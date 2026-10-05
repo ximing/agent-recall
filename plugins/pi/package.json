@@ -17,11 +17,15 @@
   },
   "files": [
     "index.ts",
+    "skills",
     "README.md"
   ],
   "pi": {
     "extensions": [
       "./index.ts"
+    ],
+    "skills": [
+      "./skills"
     ]
   },
   "peerDependencies": {

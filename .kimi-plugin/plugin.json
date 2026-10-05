@@ -1,0 +1,28 @@
+{
+  "name": "agent-recall",
+  "version": "0.1.0",
+  "description": "agent-recall skill for coding agents: write a short project-memory block into a target repo's CLAUDE.md and AGENTS.md so later sessions keep decisions in agent-recall.",
+  "author": {
+    "name": "ximing",
+    "homepage": "https://github.com/ximing"
+  },
+  "homepage": "https://github.com/ximing/agent-recall",
+  "keywords": [
+    "agent-recall",
+    "memory",
+    "skills"
+  ],
+  "skills": "./skills/",
+  "skillInstructions": "agent-recall-init for Kimi Code:\n\n- Read `skills/agent-recall-init/SKILL.md` and follow it. Write only the marked block into the target repo's CLAUDE.md and AGENTS.md.\n- Do not invent a longer block. Do not write tokens, URLs, or MCP config.\n- Invoke this skill with Kimi Code's native `Skill` tool.",
+  "interface": {
+    "displayName": "Agent Recall",
+    "shortDescription": "Point a repo's agents at agent-recall",
+    "longDescription": "The agent-recall-init skill writes one short block into the target repository's CLAUDE.md and AGENTS.md. Later sessions in that repo keep project decisions, preferences, and lessons in agent-recall.",
+    "developerName": "ximing",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/ximing/agent-recall"
+  }
+}

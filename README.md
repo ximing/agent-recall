@@ -94,7 +94,9 @@
 
 ## 装上插件
 
-安装整棵 `plugins/` 树。Claude Code 和 Codex 的脚本依赖里面的共享客户端。
+安装整棵 `plugins/` 树。Claude Code 和 Codex 的脚本依赖里面的共享客户端。这两个插件的 `skills/` 里带有 `agent-recall-init`。装上插件就有这个技能。在目标仓库里说「初始化仓库」，或运行 `/agent-recall-init`，它会把一段不到 60 行的说明写进该仓库的 `CLAUDE.md` 和 `AGENTS.md`。
+
+Cursor、Kimi、OpenCode、Pi，以及把本仓库本身当作插件市场来装的 Claude Code / Codex，读的是仓库根目录的 `skills/agent-recall-init`。Grok 从 [ximing/grok-plugins](https://github.com/ximing/grok-plugins) 安装，`skills/**` 或 `.claude-plugin/plugin.json` 变更时由 GitHub Actions 同步过去。
 
 Claude Code：
 
@@ -118,13 +120,42 @@ cp plugins/opencode/agent-recall.ts ~/.config/opencode/plugins/
 cp plugins/opencode/commands/recall.md ~/.config/opencode/commands/
 ```
 
-不要再在 `opencode.json` 的 `plugin` 里登记一次，否则事件会记两遍。
+不要再在 `opencode.json` 的 `plugin` 里登记一次，否则事件会记两遍。技能另装仓库插件，它只注册 `skills/`，不记事件：
+
+```json
+{
+  "plugin": ["agent-recall@git+https://github.com/ximing/agent-recall.git"]
+}
+```
 
 pi：
 
 ```bash
 mkdir -p ~/.pi/agent/extensions/agent-recall
 cp plugins/pi/index.ts ~/.pi/agent/extensions/agent-recall/index.ts
+```
+
+`plugins/pi/package.json` 的 `pi.skills` 指向同目录的 `skills/`。用包安装时技能会一起装上。只拷 `index.ts` 时，技能用仓库根目录：
+
+```bash
+pi install git:github.com/ximing/agent-recall
+```
+
+Cursor：清单在 [`.cursor-plugin/plugin.json`](.cursor-plugin/plugin.json)。在 Cursor Agent 对话里执行 `/add-plugin agent-recall`。
+
+Kimi Code：
+
+```text
+/plugins install https://github.com/ximing/agent-recall
+```
+
+然后 `/new` 开一个新会话。
+
+Grok：
+
+```bash
+grok plugin marketplace add ximing/grok-plugins
+grok plugin install agent-recall --trust
 ```
 
 插件要配的就是接入用的那两个变量：
