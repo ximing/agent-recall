@@ -35,9 +35,8 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   const schema = options.schema ?? config.DATABASE_SCHEMA;
   const opened = await openDatabase({ databaseUrl, schema });
   const retrieval = options.retrieval ?? createRetrieval(config);
-
   const app = Fastify({ logger: options.logger ?? false });
-  app.decorate('ctx', { db: opened.db, retrieval, config, closeDb: opened.close });
+  app.decorate('ctx', { db: opened.db, pool: opened.pool, retrieval, config, closeDb: opened.close });
   app.decorate('authenticate', authenticate);
   app.decorateRequest('userId', '');
   app.decorateRequest('actor', '');

@@ -33,14 +33,14 @@ export function registerAdminRoutes(app: FastifyInstance): void {
       problems.push({
         code: 'PENDING_INDEX',
         message: `${stats.pendingIndex} 条记忆未进入检索索引`,
-        fix: '调用 POST /api/admin/heal 重新索引',
+        fix: '服务每小时自动补索引；要马上处理调用 POST /api/admin/heal',
       });
     }
     if (stats.expired > 0) {
       problems.push({
         code: 'EXPIRED_MEMORIES',
         message: `${stats.expired} 条记忆已过期未清理`,
-        fix: '调用 POST /api/admin/heal（内部执行 auto-forget）',
+        fix: '服务每小时自动清理；要马上处理调用 POST /api/admin/heal（内部执行 auto-forget）',
       });
     }
     const config = app.ctx.config;

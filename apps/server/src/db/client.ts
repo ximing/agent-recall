@@ -8,6 +8,7 @@ export type Database = NodePgDatabase<typeof schema>;
 
 export interface OpenedDatabase {
   db: Database;
+  pool: pg.Pool;
   close: () => Promise<void>;
 }
 
@@ -90,6 +91,7 @@ export async function openDatabase(options: {
   const db = drizzlePg({ client: pool, schema });
   return {
     db,
+    pool,
     close: async () => {
       await pool.end();
     },
