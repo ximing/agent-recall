@@ -5,6 +5,7 @@ import { recallLogs } from '../db/schema.js';
 import { createEmbeddingClient } from './embedding.js';
 import { createRetrieval } from './ports.js';
 import { embedDeterministic, startProtocolStandin, type ProtocolStandIn } from './protocol-standin.js';
+import { meiliQuoted, meiliUserFilter, qdrantUserFilter } from './recall.js';
 import { call, makeDataDir, openTestApp, removeDataDir, sessionCookie, testConfig } from '../test/app-harness.js';
 
 describe('two-path recall', () => {
@@ -41,8 +42,15 @@ describe('two-path recall', () => {
     await removeDataDir(dataDir);
   });
 
-  async function create(content: string, authCookie = cookie): Promise<{ id: string; content: string }> {
-    const res = await call(app, 'POST', '/api/memories', { cookie: authCookie, payload: { content } });
+  async function create(
+    content: string,
+    authCookie = cookie,
+    project?: string,
+  ): Promise<{ id: string; content: string }> {
+    const res = await call(app, 'POST', '/api/memories', {
+      cookie: authCookie,
+      payload: project === undefined ? { content } : { content, project },
+    });
     expect(res.status).toBe(201);
     return res.body?.memory as { id: string; content: string };
   }
@@ -243,5 +251,62 @@ describe('two-path recall', () => {
 
     await call(app, 'PUT', '/api/settings', { cookie, payload: { rerankEnabled: false, rerankApiKey: '' } });
     standin.control.script = null;
+  });
+
+  it('filters project inside the search window so other projects cannot crowd it out', async () => {
+    const token = `projwin-${randomUUID()}`;
+    // 带过滤器时抓取量至少 40。先写入 41 条别的项目，目标项目若只在取回后过滤，会落在窗口外。
+    for (let index = 0; index < 41; index += 1) {
+      await create(`${token} 其他项目 ${String(index)}`, cookie, 'other-proj');
+    }
+    const mine = await create(`${token} ${'甲'.repeat(80)}`, cookie, 'agent-recall');
+
+    standin.control.script = { qdrantStatus: 500 };
+    const lexical = await call(app, 'POST', '/api/memories/recall', {
+      cookie,
+      payload: { query: token, limit: 5, filter: { project: 'agent-recall' } },
+    });
+    expect(lexical.status).toBe(200);
+    expect((lexical.body?.memories as { id: string }[]).map((item) => item.id)).toEqual([mine.id]);
+    const meiliBody = standin.control.meiliSearches.at(-1) as { filter?: string };
+    expect(meiliBody.filter).toBe(`${meiliUserFilter(userId, 'agent-recall')}`);
+
+    standin.control.script = { meiliStatus: 500 };
+    const vector = await call(app, 'POST', '/api/memories/recall', {
+      cookie,
+      payload: { query: token, limit: 5, filter: { project: 'agent-recall' } },
+    });
+    expect(vector.status).toBe(200);
+    expect((vector.body?.memories as { id: string }[]).map((item) => item.id)).toEqual([mine.id]);
+    const qdrantBody = standin.control.qdrantQueries.at(-1) as {
+      filter?: { must?: { key?: string; match?: { value?: string } }[] };
+    };
+    expect(qdrantBody.filter).toEqual(qdrantUserFilter(userId, 'agent-recall'));
+
+    const quoted = 'say "hi"';
+    const quotedMemory = await create(`${token} 引号项目`, cookie, quoted);
+    standin.control.script = { qdrantStatus: 500 };
+    const escaped = await call(app, 'POST', '/api/memories/recall', {
+      cookie,
+      payload: { query: token, limit: 5, filter: { project: quoted } },
+    });
+    expect((escaped.body?.memories as { id: string }[]).map((item) => item.id)).toEqual([quotedMemory.id]);
+    const escapedFilter = (standin.control.meiliSearches.at(-1) as { filter?: string }).filter;
+    expect(escapedFilter).toContain(`project = ${meiliQuoted(quoted)}`);
+    standin.control.script = null;
+  }, 60_000);
+});
+
+describe('engine filter strings', () => {
+  it('quotes project values and keeps the user clause', () => {
+    expect(meiliUserFilter('user-1')).toBe('user_id = "user-1"');
+    expect(meiliUserFilter('user-1', 'agent-recall')).toBe('user_id = "user-1" AND project = "agent-recall"');
+    expect(meiliQuoted('say "hi"\\path')).toBe('"say \\"hi\\"\\\\path"');
+    expect(qdrantUserFilter('user-1', 'agent-recall')).toEqual({
+      must: [
+        { key: 'user_id', match: { value: 'user-1' } },
+        { key: 'project', match: { value: 'agent-recall' } },
+      ],
+    });
   });
 });

@@ -13,7 +13,7 @@ export type MeiliIndexSettings = {
 };
 
 export const MEMORY_INDEX_SETTINGS: MeiliIndexSettings = {
-  filterableAttributes: ['user_id', 'id', 'origin'],
+  filterableAttributes: ['user_id', 'id', 'origin', 'project'],
   searchableAttributes: ['text'],
   localizedAttributes: [{ attributePatterns: ['*'], locales: ['cmn'] }],
 };

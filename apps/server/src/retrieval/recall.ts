@@ -7,12 +7,46 @@ import { MEMORY_INDEX_SETTINGS } from './meili.js';
 import { publicRerankFailure } from './rerank.js';
 import { rrfMerge } from './rrf.js';
 
-export function meiliUserFilter(userId: string): string {
-  return `user_id = "${userId}"`;
+/** Meilisearch 过滤值用双引号包裹，内部的反斜杠和引号要转义。 */
+export function meiliQuoted(value: string): string {
+  return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
 }
 
-export function qdrantUserFilter(userId: string): unknown {
-  return { must: [{ key: 'user_id', match: { value: userId } }] };
+export function meiliUserFilter(userId: string, project?: string): string {
+  const user = `user_id = ${meiliQuoted(userId)}`;
+  if (!project) return user;
+  return `${user} AND project = ${meiliQuoted(project)}`;
+}
+
+export function qdrantUserFilter(userId: string, project?: string): { must: Array<{ key: string; match: { value: string } }> } {
+  const must = [{ key: 'user_id', match: { value: userId } }];
+  if (project) must.push({ key: 'project', match: { value: project } });
+  return { must };
+}
+
+const projectFilterReady = new Map<string, Promise<void>>();
+
+/**
+ * 已有索引的文档里本来就有 project。把它加进可过滤字段后，下一次写入会更新设置；
+ * 带 project 的召回若发生在那之前，这里补一次，避免引擎拒绝这个过滤条件、整路变空。
+ * 更新失败则退回只按用户过滤，行上的 project 条件仍然生效。
+ */
+function ensureProjectFilterable(retrieval: RetrievalPorts): Promise<void> {
+  const key = `${retrieval.meiliIndex}\0${retrieval.qdrantCollection}`;
+  const existing = projectFilterReady.get(key);
+  if (existing) return existing;
+  let pending!: Promise<void>;
+  pending = (async () => {
+    try {
+      await retrieval.meili.ensureIndex(retrieval.meiliIndex, MEMORY_INDEX_SETTINGS);
+      await retrieval.qdrant.ensureCollection(retrieval.qdrantCollection, { payloadFields: ['user_id', 'project'] });
+    } catch (err) {
+      if (projectFilterReady.get(key) === pending) projectFilterReady.delete(key);
+      throw err;
+    }
+  })();
+  projectFilterReady.set(key, pending);
+  return pending;
 }
 
 export async function indexMemory(retrieval: RetrievalPorts, row: MemoryRow): Promise<void> {
@@ -34,7 +68,7 @@ export async function indexMemory(retrieval: RetrievalPorts, row: MemoryRow): Pr
     failures.push(err);
   }
   try {
-    await retrieval.qdrant.ensureCollection(retrieval.qdrantCollection, { payloadFields: ['user_id'] });
+    await retrieval.qdrant.ensureCollection(retrieval.qdrantCollection, { payloadFields: ['user_id', 'project'] });
     const [vector] = await retrieval.embeddings.embedTexts([row.content]);
     if (!vector) throw new Error('embedding returned no vector');
     await retrieval.qdrant.upsertPoints(retrieval.qdrantCollection, [
@@ -67,22 +101,34 @@ export async function reindexPending(db: Database, retrieval: RetrievalPorts, us
   }
 }
 
-async function lexicalIds(retrieval: RetrievalPorts, userId: string, query: string, limit: number): Promise<string[]> {
+async function lexicalIds(
+  retrieval: RetrievalPorts,
+  userId: string,
+  query: string,
+  limit: number,
+  project?: string,
+): Promise<string[]> {
   const hits = await retrieval.meili.search(retrieval.meiliIndex, {
     q: query,
-    filter: meiliUserFilter(userId),
+    filter: meiliUserFilter(userId, project),
     limit,
   });
   return hits.map((hit) => String(hit.id ?? '')).filter((id) => id.length > 0);
 }
 
-async function vectorIds(retrieval: RetrievalPorts, userId: string, query: string, limit: number): Promise<string[]> {
+async function vectorIds(
+  retrieval: RetrievalPorts,
+  userId: string,
+  query: string,
+  limit: number,
+  project?: string,
+): Promise<string[]> {
   const [vector] = await retrieval.embeddings.embedTexts([query]);
   if (!vector) return [];
   const hits = await retrieval.qdrant.queryPoints(
     retrieval.qdrantCollection,
     vector,
-    qdrantUserFilter(userId),
+    qdrantUserFilter(userId, project),
     limit,
   );
   return hits.map((hit) => hit.id).filter((id) => id.length > 0);
@@ -130,18 +176,28 @@ export async function recallMemories(
   options: RecallOptions = {},
 ): Promise<RecallOutcome> {
   await reindexPending(db, retrieval, userId);
-  // 过滤会造成候选损耗，带过滤器或深度模式时放大抓取量
+  let project = options.filter?.project;
+  if (project) {
+    try {
+      await ensureProjectFilterable(retrieval);
+    } catch (err) {
+      console.error(`project search filter unavailable, post-filter only: ${err instanceof Error ? err.message : String(err)}`);
+      project = undefined;
+    }
+  }
+  // 标签、时间、会话等仍在取回后过滤，会吃掉一部分候选，所以放大抓取量。
+  // project 已经在引擎侧收窄，不再占用这扇窗口。
   const fetchLimit = options.deep
     ? Math.max(limit * 4, 60)
     : options.filter
       ? Math.max(limit * 3, 40)
       : Math.max(limit, 20);
   const [lexical, vector] = await Promise.all([
-    lexicalIds(retrieval, userId, query, fetchLimit).then(
+    lexicalIds(retrieval, userId, query, fetchLimit, project).then(
       (ids) => ({ ok: true as const, ids }),
       () => ({ ok: false as const, ids: [] as string[] }),
     ),
-    vectorIds(retrieval, userId, query, fetchLimit).then(
+    vectorIds(retrieval, userId, query, fetchLimit, project).then(
       (ids) => ({ ok: true as const, ids }),
       () => ({ ok: false as const, ids: [] as string[] }),
     ),
@@ -157,7 +213,7 @@ export async function recallMemories(
     .where(and(eq(memories.userId, userId), inArray(memories.id, fused)));
   const byId = new Map(rows.map((row) => [row.id, row]));
   const now = new Date();
-  // 检索侧只按 user 隔离；版本链/过期/业务过滤器在取回行后统一裁决
+  // 引擎侧按 user 隔离，并在带 project 时一并收窄。版本链、过期和其余过滤器在取回行后裁决。
   let ordered = fused.filter((id) => {
     const row = byId.get(id);
     if (!row || !row.isLatest) return false;

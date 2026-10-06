@@ -32,6 +32,7 @@ interface Doc {
   user_id: string;
   text: string;
   origin?: string;
+  project: string | null;
 }
 
 interface Point {
@@ -71,18 +72,20 @@ function send(res: ServerResponse, status: number, body: unknown): void {
   res.end(text);
 }
 
-function userFromMeiliFilter(filter: unknown): string | null {
+/** 读出 `field = "value"`，value 里的 `\\` 和 `\"` 按 Meilisearch 规则还原。 */
+function meiliEquals(filter: unknown, field: string): string | null {
   if (typeof filter !== 'string') return null;
-  const match = /user_id\s*=\s*"([^"]+)"/.exec(filter);
-  return match?.[1] ?? null;
+  const match = new RegExp(`(?:^|\\s)${field}\\s*=\\s*"((?:\\\\.|[^"\\\\])*)"`).exec(filter);
+  if (!match?.[1]) return null;
+  return match[1].replace(/\\(.)/g, '$1');
 }
 
-function userFromQdrantFilter(filter: unknown): string | null {
+function qdrantEquals(filter: unknown, key: string): string | null {
   const must = (filter as { must?: unknown } | null)?.must;
   if (!Array.isArray(must)) return null;
   for (const clause of must) {
     const record = clause as { key?: unknown; match?: { value?: unknown } };
-    if (record.key === 'user_id' && typeof record.match?.value === 'string') return record.match.value;
+    if (record.key === key && typeof record.match?.value === 'string') return record.match.value;
   }
   return null;
 }
@@ -231,7 +234,13 @@ export async function startProtocolStandin(): Promise<ProtocolStandIn> {
         const rows = Array.isArray(body) ? body : [];
         for (const row of rows) {
           const doc = row as Doc;
-          docs.set(String(doc.id), { id: String(doc.id), user_id: String(doc.user_id), text: String(doc.text), origin: doc.origin });
+          docs.set(String(doc.id), {
+            id: String(doc.id),
+            user_id: String(doc.user_id),
+            text: String(doc.text),
+            origin: typeof doc.origin === 'string' ? doc.origin : undefined,
+            project: typeof doc.project === 'string' ? doc.project : null,
+          });
         }
         send(res, 202, { taskUid: enqueue() });
         return;
@@ -256,10 +265,12 @@ export async function startProtocolStandin(): Promise<ProtocolStandIn> {
           return;
         }
         const query = body as { q?: string; filter?: string; limit?: number };
-        const userId = userFromMeiliFilter(query.filter);
+        const userId = meiliEquals(query.filter, 'user_id');
+        const project = meiliEquals(query.filter, 'project');
         const needle = (query.q ?? '').toLowerCase();
         const hits = [...(indexes.get(uid)?.values() ?? [])].filter((doc) => {
           if (userId && doc.user_id !== userId) return false;
+          if (project !== null && doc.project !== project) return false;
           return doc.text.toLowerCase().includes(needle);
         });
         send(res, 200, { hits: hits.slice(0, query.limit ?? 20) });
@@ -327,10 +338,12 @@ export async function startProtocolStandin(): Promise<ProtocolStandIn> {
           return;
         }
         const query = body as { query?: number[]; filter?: unknown; limit?: number };
-        const userId = userFromQdrantFilter(query.filter);
+        const userId = qdrantEquals(query.filter, 'user_id');
+        const project = qdrantEquals(query.filter, 'project');
         const vector = query.query ?? [];
         const ranked = [...(collections.get(name)?.values() ?? [])]
           .filter((point) => !userId || point.payload.user_id === userId)
+          .filter((point) => project === null || point.payload.project === project)
           .map((point) => ({ point, score: cosine(vector, point.vector) }))
           .sort((left, right) => right.score - left.score)
           .slice(0, query.limit ?? 20);
