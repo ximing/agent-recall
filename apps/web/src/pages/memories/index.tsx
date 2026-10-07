@@ -167,7 +167,11 @@ const MemoriesPage = observer(function MemoriesPage() {
         <button
           type="button"
           className={`filter-btn${advOpen || picked.length > 0 ? ' on' : ''}`}
-          onClick={() => setAdvOpen(!advOpen)}
+          onClick={() => {
+            const next = !advOpen;
+            setAdvOpen(next);
+            if (!next) service.cancelFilterForget();
+          }}
           aria-expanded={advOpen}
         >
           <ListFilter size={13} strokeWidth={1.8} />
@@ -253,6 +257,7 @@ const MemoriesPage = observer(function MemoriesPage() {
               />
             </div>
           </div>
+          <FilterForgetBar />
         </div>
       ) : null}
 
@@ -300,7 +305,6 @@ const MemoriesPage = observer(function MemoriesPage() {
       ) : null}
 
       <ContextPreview />
-      <FilterForgetBar />
       <BatchBar />
       <MemoryList />
       <MemoryDrawer />

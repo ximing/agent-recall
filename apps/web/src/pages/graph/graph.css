@@ -1,75 +1,119 @@
 /* ============ 关系页 ============ */
-.graph-split {
-  display: grid;
-  grid-template-columns: 1fr 300px;
-  gap: 20px;
-  align-items: start;
+/* 整页不滚动:页头/工具栏固定,画布撑满剩余视口高度。116px = .stage 上下 padding(36+80) */
+.graph-page {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 116px);
+  min-height: 480px;
 }
+.graph-page .page-head { flex: none; }
+.graph-stats {
+  display: flex;
+  gap: 8px;
+  flex: none;
+  align-items: center;
+}
+
 .graph-toolbar {
   display: flex;
   gap: 10px;
   margin-bottom: 16px;
+  flex: none;
 }
-.graph-toolbar .search-box { padding-top: 0; padding-bottom: 0; }
+.graph-toolbar .search-box { padding-top: 0; padding-bottom: 0; flex: 1; }
 .graph-toolbar .search-box input { font-size: 14px; padding: 10px 0; }
+
 .graph-canvas-wrap {
+  flex: 1;
+  min-height: 0;
   position: relative;
+  display: flex;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
   box-shadow: var(--shadow);
   overflow: hidden;
 }
-.graph-canvas-wrap svg { display: block; width: 100%; height: auto; }
+.graph-canvas-wrap svg {
+  flex: 1;
+  display: block;
+  touch-action: none;
+  cursor: grab;
+}
+.graph-canvas-wrap svg.panning { cursor: grabbing; }
+/* 加载/空态在画布内居中 */
+.graph-canvas-wrap > .composer-hint { margin: auto; }
+.graph-canvas-wrap > .empty { margin: auto; max-width: 420px; }
+
+/* ---- 节点与边 ---- */
 .graph-node { cursor: pointer; }
-.graph-node circle { transition: stroke-width .15s ease; }
+.graph-node .graph-core { transition: stroke-width .15s ease; }
+.graph-node:hover .graph-core { stroke: var(--ink-3); stroke-width: 1.5; }
+.graph-node.selected .graph-core { stroke: var(--accent); stroke-width: 5; stroke-opacity: .3; }
+.graph-halo {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  animation: halo-pulse 1.8s ease-in-out infinite;
+}
+@keyframes halo-pulse {
+  0%, 100% { opacity: .12; }
+  50% { opacity: .45; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .graph-halo { animation: none; }
+}
+.graph-edge:hover { stroke: var(--accent); }
+
+/* ---- 图例 = 类型筛选 chips ---- */
 .graph-legend {
   position: absolute;
   left: 14px;
   bottom: 14px;
   display: flex;
-  gap: 12px;
+  gap: 4px;
   flex-wrap: wrap;
   background: color-mix(in srgb, var(--surface) 88%, transparent);
   backdrop-filter: blur(8px);
   border: 1px solid var(--line);
   border-radius: 999px;
-  padding: 6px 14px;
+  padding: 5px 8px;
   font-size: 12px;
   color: var(--ink-2);
 }
-.graph-legend span { display: inline-flex; align-items: center; gap: 6px; }
-.graph-legend .dot { width: 8px; height: 8px; border-radius: 50%; }
-.node-panel {
-  position: sticky;
-  top: 16px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface);
-  box-shadow: var(--shadow);
+.legend-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  transition: background-color .15s ease, color .15s ease, opacity .15s ease;
 }
-.node-panel-head {
-  padding: 16px 18px 12px;
-  border-bottom: 1px solid var(--line);
+.legend-chip:hover { background: var(--surface-2); color: var(--ink); }
+.legend-chip.off { opacity: .38; }
+.legend-chip .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+
+/* ---- 节点详情抽屉(结构样式在 global.css 的通用抽屉段) ---- */
+.graph-drawer { width: min(400px, 92vw); }
+.graph-drawer .drawer-title { word-break: break-all; line-height: 1.45; }
+.gnode-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
 }
-.node-panel-head .kind { margin-bottom: 6px; }
-.node-panel-head .name {
-  font-family: var(--font-display);
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: .03em;
-  word-break: break-all;
-  line-height: 1.45;
-}
-.node-panel-body { padding: 14px 18px 18px; }
-.node-panel-body h3 {
+.graph-drawer h3 {
   font-size: 12px;
   font-weight: 500;
   color: var(--ink-3);
   letter-spacing: .1em;
   margin: 12px 0 8px;
 }
-.node-panel-body h3:first-child { margin-top: 0; }
 .edge-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
 .edge-list li {
   font-size: 13px;
@@ -79,7 +123,12 @@
   align-items: baseline;
 }
 .edge-list .rel { color: var(--accent); flex: none; font-size: 12px; }
+.edge-list .related-btn { width: auto; padding: 0; }
+
+/* ---- 窄屏降级:页面恢复自然流,画布固定高度;抽屉全屏覆盖 ---- */
 @media (max-width: 1000px) {
-  .graph-split { grid-template-columns: 1fr; }
-  .node-panel { position: static; }
+  .graph-page { height: auto; min-height: 0; }
+  .graph-canvas-wrap { flex: none; height: 60vh; }
+  .graph-drawer { width: 100vw; border-left: none; }
+  .graph-legend { left: 10px; bottom: 10px; right: 10px; border-radius: var(--radius); }
 }

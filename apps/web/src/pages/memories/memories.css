@@ -141,6 +141,36 @@
 .adv-panel .adv-fields { display: flex; gap: 8px; flex-wrap: wrap; }
 .adv-panel .adv-fields .field { width: auto; flex: 1; min-width: 150px; padding: 6px 11px; font-size: 13px; }
 .adv-panel .adv-fields .field.time { flex: none; width: 196px; }
+.quiet-forget {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.quiet-batch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: -2px 2px 10px;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.quiet-batch .spacer { margin-left: auto; }
+.quiet-note { font-size: 12px; color: var(--ink-3); }
+.text-btn {
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.text-btn:hover { color: var(--ink-2); text-decoration: underline; }
+.text-btn.muted:hover { color: var(--danger); text-decoration: underline; }
+.text-btn.danger { color: var(--danger); }
+.text-btn.danger:hover { color: var(--danger); }
+.text-btn:disabled { opacity: .5; cursor: not-allowed; text-decoration: none; }
 
 /* 已选条件 */
 .picked-row {
@@ -253,26 +283,6 @@
   margin-bottom: 14px;
 }
 .import-panel .spacer { margin-left: auto; }
-
-/* 批量操作条 */
-.batch-bar {
-  position: sticky;
-  top: 12px;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  background: var(--accent-soft);
-  border: 1px solid var(--accent-line);
-  border-radius: var(--radius);
-  padding: 9px 14px;
-  margin-bottom: 12px;
-  box-shadow: var(--shadow);
-}
-.batch-bar .spacer { margin-left: auto; }
-.batch-count { font-size: 13px; font-weight: 500; color: var(--accent); }
-.batch-danger-text { font-size: 13px; color: var(--danger); }
 
 /* 注入预览 */
 .context-panel { margin-bottom: 14px; }
