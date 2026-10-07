@@ -17,7 +17,7 @@ const LoginPage = observer(function LoginPage() {
           onSubmit={(event) => {
             event.preventDefault();
             void service.submit().then((ok) => {
-              if (ok) navigate(ROUTES.memories);
+              if (ok) navigate(ROUTES.board);
             });
           }}
         >

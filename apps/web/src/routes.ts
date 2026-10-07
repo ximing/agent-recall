@@ -1,6 +1,7 @@
 export const ROUTES = {
   home: '/',
   login: '/login',
+  board: '/board',
   memories: '/memories',
   sessions: '/sessions',
   state: '/state',
@@ -16,6 +17,7 @@ export type AppRoute = (typeof ROUTES)[keyof typeof ROUTES];
 export const PAGE_LIST: ReadonlyArray<{ path: AppRoute; title: string; auth: boolean }> = [
   { path: ROUTES.home, title: '说明', auth: false },
   { path: ROUTES.login, title: '登录', auth: false },
+  { path: ROUTES.board, title: '看板', auth: true },
   { path: ROUTES.memories, title: '记忆', auth: true },
   { path: ROUTES.sessions, title: '会话', auth: true },
   { path: ROUTES.state, title: '状态', auth: true },

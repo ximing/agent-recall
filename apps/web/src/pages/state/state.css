@@ -72,22 +72,6 @@
 .status-pill.s-done { color: var(--ok); border-color: transparent; background: var(--ok-soft); }
 .status-pill.s-blocked { color: var(--danger); border-color: var(--danger-line); background: var(--danger-soft); }
 
-/* 简报分节 */
-.brief-section { padding: 14px 18px; border-bottom: 1px solid var(--line); }
-.brief-section:last-child { border-bottom: none; }
-.brief-section h3 {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--ink-3);
-  letter-spacing: .1em;
-  margin-bottom: 8px;
-}
-.brief-list { list-style: none; display: flex; flex-direction: column; gap: 7px; }
-.brief-list li { display: flex; gap: 10px; align-items: baseline; font-size: 14px; }
-.brief-list .dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); align-self: center; }
-.brief-list .tail { margin-left: auto; flex: none; font-size: 12px; color: var(--ink-3); }
-.brief-section .md { color: var(--ink-2); }
-
 /* KV 定义行的键与值（.kv-row 本体在 global.css，治理页也复用） */
 .kv-key {
   flex: none;

@@ -1,0 +1,244 @@
+/* ============ 看板 ============ */
+
+.board-figures {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  margin-bottom: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.figure {
+  display: block;
+  padding: 16px 14px 14px;
+  border-right: 1px solid var(--line);
+  text-decoration: none;
+  color: inherit;
+}
+.figure:last-child { border-right: none; }
+.figure:hover { background: var(--surface-2); }
+.figure .num {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.figure .lbl {
+  display: block;
+  margin-top: 6px;
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+.figure.live .num { color: var(--accent); }
+.figure.warn { background: var(--gold-bg); }
+.figure.warn .num { color: var(--gold-ink); }
+.figure.warn:hover { background: var(--gold-bg); }
+
+.board-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.board-grid .span-2 { grid-column: 1 / -1; }
+.board-panel { min-width: 0; padding-bottom: 6px; }
+/* 全局 .panel-head 底边是 0，分隔线又画在第一行内容上，标题会贴住横线 */
+.board-panel .panel-head { padding-bottom: 16px; }
+
+.board-more {
+  flex: none;
+  padding-top: 2px;
+  font-size: 13px;
+  color: var(--accent);
+  text-decoration: none;
+}
+.board-more:hover { text-decoration: underline; }
+
+.board-hint {
+  padding: 2px 18px 14px;
+  font-size: 13px;
+  color: var(--ink-3);
+}
+
+.mix { padding-bottom: 10px; }
+.mix-row {
+  display: grid;
+  grid-template-columns: 4.5em minmax(0, 1fr) 3.2em;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 18px;
+  font-size: 13px;
+}
+.mix-label { color: var(--ink-2); }
+.mix-track {
+  height: 8px;
+  border-radius: 99px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.mix-fill {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: var(--accent);
+}
+.mix-fill.web { background: var(--tab-web); }
+.mix-fill.agent { background: var(--tab-agent); }
+.mix-fill.hook { background: var(--tab-hook); }
+.mix-fill.import { background: var(--tab-import); }
+.mix-fill.summary { background: var(--tab-summary); }
+.mix-count {
+  text-align: right;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.board-list { list-style: none; }
+.board-list li {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  min-width: 0;
+  padding: 9px 18px;
+  border-top: 1px solid var(--line);
+  font-size: 14px;
+}
+.board-list .grow { flex: 1; min-width: 0; }
+.board-list .sid,
+.board-list .query {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.board-list .sid { font-family: var(--font-mono); font-size: 12.5px; }
+.board-list .query {
+  display: -webkit-box;
+  white-space: normal;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.board-list .proj {
+  display: block;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.board-list .tail {
+  margin-left: auto;
+  flex: none;
+  font-size: 12px;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.board-list .detail { color: var(--ink-3); font-weight: 400; }
+
+.recall-sum {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 0 18px 8px;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.recall-sum b {
+  margin-right: 4px;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.recall-sum .bad b { color: var(--danger); }
+
+.board-note {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: baseline;
+  padding: 8px 18px 12px;
+  font-size: 14px;
+}
+.board-note a { color: var(--accent); text-decoration: none; }
+.board-note a:hover { text-decoration: underline; }
+
+.health-list { list-style: none; padding-bottom: 8px; }
+.health-line {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 8px 18px;
+  font-size: 14px;
+}
+.health-line span { flex: 1; min-width: 0; }
+.health-line::before {
+  content: "";
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--gold-ink);
+}
+.health-line.ok { color: var(--ok); }
+.health-line.ok::before { background: var(--ok); }
+.health-line a {
+  flex: none;
+  margin-left: auto;
+  color: var(--accent);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.health-line a:hover { text-decoration: underline; }
+
+.memory-row { padding: 10px 18px 12px; border-top: 1px solid var(--line); }
+.memory-row .meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.memory-row .when {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.project-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 2px 18px 14px;
+}
+
+.mini-tag.live {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+}
+
+@media (max-width: 860px) {
+  .board-figures { grid-template-columns: repeat(3, 1fr); }
+  .figure { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .figure:nth-child(3n) { border-right: none; }
+  .figure:nth-child(n + 4) { border-bottom: none; }
+  .board-grid { grid-template-columns: 1fr; }
+  .board-grid .span-2 { grid-column: auto; }
+}
+@media (max-width: 520px) {
+  .board-figures { grid-template-columns: repeat(2, 1fr); }
+  .figure:nth-child(3n) { border-right: 1px solid var(--line); }
+  .figure:nth-child(2n) { border-right: none; }
+  .figure:nth-child(n + 4) { border-bottom: 1px solid var(--line); }
+  .figure:nth-last-child(-n + 2) { border-bottom: none; }
+}

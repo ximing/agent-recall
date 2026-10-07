@@ -1,9 +1,8 @@
-import type { KvEntryPublic, MemoryPublic, SessionSummaryPublic } from '@agent-recall/dto';
+import type { KvEntryPublic } from '@agent-recall/dto';
 import { Service } from '@rabjs/react';
 import { api, errorMessage } from '@/api/client';
 
 export type StateTab =
-  | 'brief'
   | 'actions'
   | 'signals'
   | 'sentinels'
@@ -30,14 +29,10 @@ function parseJson(raw: string): { ok: true; value: unknown } | { ok: false; err
 }
 
 export class StateService extends Service {
-  tab: StateTab = 'brief';
+  tab: StateTab = 'actions';
   loading = false;
   error: string | null = null;
   notice: string | null = null;
-
-  openActions: KvEntryPublic[] = [];
-  latestSession: SessionSummaryPublic | null = null;
-  recentMemories: MemoryPublic[] = [];
 
   entries: KvEntryPublic[] = [];
   pendingKey: string | null = null;
@@ -77,27 +72,7 @@ export class StateService extends Service {
   }
 
   async load(): Promise<void> {
-    if (this.tab === 'brief') await this.loadBrief();
-    else await this.loadEntries(this.tab);
-  }
-
-  async loadBrief(): Promise<void> {
-    this.loading = true;
-    this.error = null;
-    try {
-      const [actions, sessions, memories] = await Promise.all([
-        api.listKv('actions'),
-        api.listSessions(),
-        api.listMemories({ limit: 5 }),
-      ]);
-      this.openActions = actions.entries.filter((entry) => asRecord(entry.value).status === 'open');
-      this.latestSession = sessions.sessions[0] ?? null;
-      this.recentMemories = memories.memories;
-    } catch (err) {
-      this.error = errorMessage(err, '读取简报失败');
-    } finally {
-      this.loading = false;
-    }
+    await this.loadEntries(this.tab);
   }
 
   private async loadEntries(namespace: string): Promise<void> {
@@ -316,7 +291,7 @@ export class StateService extends Service {
   }
 
   async confirmDelete(): Promise<void> {
-    if (!this.pendingKey || this.tab === 'brief') return;
+    if (!this.pendingKey) return;
     const key = this.pendingKey;
     this.error = null;
     try {

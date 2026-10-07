@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router';
+import BoardPage from '@/pages/board';
 import GraphPage from '@/pages/graph';
 import GuidePage from '@/pages/guide';
 import LoginPage from '@/pages/login';
@@ -18,6 +19,7 @@ export function App() {
       <Route path={ROUTES.home} element={<GuidePage />} />
       <Route path={ROUTES.login} element={<LoginPage />} />
       <Route element={<RequireAuth />}>
+        <Route path={ROUTES.board.slice(1)} element={<BoardPage />} />
         <Route path={ROUTES.memories.slice(1)} element={<MemoriesPage />} />
         <Route path={ROUTES.sessions.slice(1)} element={<SessionsPage />} />
         <Route path={ROUTES.state.slice(1)} element={<StatePage />} />

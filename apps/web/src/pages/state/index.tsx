@@ -5,14 +5,12 @@ import {
   Box,
   CheckSquare,
   Hourglass,
-  LayoutDashboard,
   ListTodo,
   Radar,
   Repeat,
 } from 'lucide-react';
 import { useEffect } from 'react';
 import { ActionsPanel } from './components/actions';
-import { Brief } from './components/brief';
 import { CheckpointsPanel } from './components/checkpoints';
 import { LeasesPanel } from './components/leases';
 import { ProfilePanel } from './components/profile';
@@ -27,7 +25,6 @@ const NAV_GROUPS: Array<{
   label: string;
   tabs: Array<{ key: StateTab; label: string; icon: typeof ListTodo }>;
 }> = [
-  { label: '总览', tabs: [{ key: 'brief', label: '简报', icon: LayoutDashboard }] },
   {
     label: '工作项',
     tabs: [
@@ -66,7 +63,7 @@ const StatePage = observer(function StatePage() {
         <div>
           <h1>状态</h1>
           <p className="desc">
-            行动、信号、哨兵、槽位等代理工作态，都存在同一张 KV 表里，按用途分组查看。简报把未完成行动、最近会话和五条新记忆放在一起。
+            行动、信号、哨兵、槽位、档案、租约、例程和检查点。这些工作态存在同一张 KV 表里，按用途分组查看。
           </p>
         </div>
       </header>
@@ -102,7 +99,6 @@ const StatePage = observer(function StatePage() {
 
         <div className="state-content">
           {service.loading ? <p className="composer-hint" style={{ marginBottom: 12 }}>加载中…</p> : null}
-          {service.tab === 'brief' ? <Brief /> : null}
           {service.tab === 'actions' ? <ActionsPanel /> : null}
           {service.tab === 'signals' ? <SignalsPanel /> : null}
           {service.tab === 'sentinels' ? <SentinelsPanel /> : null}

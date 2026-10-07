@@ -1,5 +1,5 @@
 import { observer, useService } from '@rabjs/react';
-import { Bookmark, History, KeyRound, ListTodo, Monitor, Moon, Settings, Sun, Waypoints, Wrench } from 'lucide-react';
+import { Bookmark, History, KeyRound, LayoutDashboard, ListTodo, Monitor, Moon, Settings, Sun, Waypoints, Wrench } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router';
 import { ROUTES } from '@/routes';
@@ -20,6 +20,10 @@ export const Layout = observer(function Layout({ children }: { children: ReactNo
         </Link>
         <nav className="rail-nav">
           <p className="rail-group">记录</p>
+          <NavLink to={ROUTES.board}>
+            <LayoutDashboard size={16} strokeWidth={1.6} />
+            看板
+          </NavLink>
           <NavLink to={ROUTES.memories}>
             <Bookmark size={16} strokeWidth={1.6} />
             记忆
