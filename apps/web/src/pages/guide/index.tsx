@@ -43,7 +43,9 @@ function ConnectSample({ origin }: { origin: string }) {
       {': '}
       <span className="s">&quot;arm_...&quot;</span>
       {'\n      }\n    }\n  }\n}\n'}
-      <span className="c"># 插件的 AGENT_RECALL_URL 也填这个地址</span>
+      <span className="c"># 远程 HTTPS 不用装包，地址是 当前主机/mcp，请求头带 Bearer 令牌</span>
+      {'\n'}
+      <span className="c"># 插件的 AGENT_RECALL_URL 仍填主机，不要带 /mcp</span>
     </pre>
   );
 }
@@ -56,7 +58,7 @@ const GuidePage = observer(function GuidePage() {
 
   const entry =
     auth.ready && auth.user ? (
-      <Link className="lbtn primary small" to={ROUTES.memories}>
+      <Link className="lbtn primary small" to={ROUTES.board}>
         进入控制台
       </Link>
     ) : (
@@ -171,9 +173,8 @@ const GuidePage = observer(function GuidePage() {
               </div>
               <h3>主动存取</h3>
               <p>
-                stdio MCP 把记忆库暴露成 {TOOL_COUNT} 个 memory_* 工具。Agent
-                用来保存、召回、改出版本、忘掉和整理。MCP 进程把调用转发到这台服务。压缩文件、同步本地 MEMORY.md、导出
-                Obsidian 这三件在代理本机完成。
+                MCP 有两种接法。远程 HTTPS 不用安装包，62 个服务器工具直接连这台服务。本机 stdio 一共 {TOOL_COUNT}{' '}
+                个 memory_* 工具，多出来的三件在代理本机完成：压缩文件、同步本地 MEMORY.md、导出 Obsidian。
               </p>
               <div className="carrier">
                 载体 · <b>@yeanzhi/agent-recall-mcp</b>
@@ -188,7 +189,7 @@ const GuidePage = observer(function GuidePage() {
               </div>
               <h3>人来看</h3>
               <p>
-                登录之后是控制台：记忆的筛选、召回、精排、分享和版本，会话时间线与结晶，以及状态、关系、治理。令牌和
+                登录之后先到看板：记忆有多少、哪些要接着做、最近的会话和召回。往下是记忆的筛选、召回、精排、分享和版本，会话时间线与结晶，以及状态、关系、治理。令牌和
                 MCP 客户端配置只在网页里签发。
               </p>
               <div className="carrier">
@@ -326,7 +327,7 @@ const GuidePage = observer(function GuidePage() {
                   <div>
                     <h4>把地址和令牌交给 agent</h4>
                     <p>
-                      本机的 stdio MCP 只负责转发。环境变量里的地址用这个主机，令牌用刚签发的那把。插件同样指向这里。
+                      远程用 HTTPS 地址加令牌，不用装包。要本机文件工具时，再用 npx 的 stdio 配置。插件的地址也是这个主机，不要带 /mcp。
                     </p>
                   </div>
                 </li>
@@ -433,7 +434,7 @@ const GuidePage = observer(function GuidePage() {
             </div>
             <div className="ctas">
               {auth.ready && auth.user ? (
-                <Link className="lbtn primary" to={ROUTES.memories}>
+                <Link className="lbtn primary" to={ROUTES.board}>
                   进入控制台
                 </Link>
               ) : (

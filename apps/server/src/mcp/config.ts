@@ -19,3 +19,26 @@ export function renderMcpConfig(baseUrl: string, secret: string, npmPackage = MC
     2,
   );
 }
+
+/** Remote Streamable HTTP. Same token, no package, no local file tools. */
+export function renderRemoteMcpConfig(baseUrl: string, secret: string): string {
+  return JSON.stringify(
+    {
+      mcpServers: {
+        'agent-recall': {
+          type: 'http',
+          url: remoteMcpUrl(baseUrl),
+          headers: {
+            Authorization: `Bearer ${secret}`,
+          },
+        },
+      },
+    },
+    null,
+    2,
+  );
+}
+
+export function remoteMcpUrl(baseUrl: string): string {
+  return `${baseUrl.replace(/\/$/, '')}/mcp`;
+}

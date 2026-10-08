@@ -17,7 +17,9 @@ const McpPage = observer(function McpPage() {
       <header className="page-head">
         <div>
           <h1>MCP 客户端</h1>
-          <p className="desc">注册一个客户端，把配置贴进本机 MCP。npx 拉起官方包：本机文件工具在本地执行，其余工具向这台服务器转发。</p>
+          <p className="desc">
+            注册一个客户端，令牌只显示一次。远程 HTTPS 不用安装包，没有本机文件工具。本机 stdio 用 npx，full 档多三个本机文件工具。
+          </p>
         </div>
       </header>
 
@@ -32,15 +34,24 @@ const McpPage = observer(function McpPage() {
               服务地址 <code>{service.freshBaseUrl}</code>
             </p>
           ) : null}
+          <p className="sb-label">远程 HTTPS</p>
+          <p className="sb-hint">把地址交给支持 HTTP MCP 的客户端。不含 memory_compress_file、memory_claude_bridge_sync、memory_obsidian_export。要缩小工具面，在地址后加 ?profile=core 或 standard。</p>
+          <pre className="sb-value">{service.freshRemoteConfig}</pre>
+          <div className="sb-foot">
+            <button type="button" className="btn primary" onClick={() => void service.copyConfig('remote')}>
+              {service.copied === 'remote' ? '已复制' : '复制远程配置'}
+            </button>
+          </div>
+          <p className="sb-label">本机 stdio</p>
+          <p className="sb-hint">需要 Node.js 22。npx 拉起官方包，本机文件工具在本地执行，其余工具转发到这台服务。</p>
           <pre className="sb-value">{service.freshConfig}</pre>
           <div className="sb-foot">
-            <button type="button" className="btn primary" onClick={() => void service.copyConfig()}>
-              {service.copied ? '已复制' : '复制配置'}
+            <button type="button" className="btn" onClick={() => void service.copyConfig('stdio')}>
+              {service.copied === 'stdio' ? '已复制' : '复制 stdio 配置'}
             </button>
             <button type="button" className="btn" onClick={() => service.dismissConfig()}>
               我已抄写
             </button>
-            <span className="sb-note">粘贴到客户端的 MCP 配置文件中即可生效</span>
           </div>
         </aside>
       ) : null}

@@ -5,7 +5,8 @@ import { requireActor, requireSession } from '../auth/authenticate.js';
 import { createMcpClient, listMcpClients, revokeMcpClient } from '../auth/service.js';
 import { AppError } from '../errors.js';
 import { callServerTool, listServerTools, McpCallError, parseProfile } from './bridge.js';
-import { renderMcpConfig } from './config.js';
+import { renderMcpConfig, renderRemoteMcpConfig, remoteMcpUrl } from './config.js';
+import { registerRemoteMcp } from './http.js';
 
 const mcpToolCallSchema = z.object({
   name: z.string().trim().min(1).max(80),
@@ -14,6 +15,8 @@ const mcpToolCallSchema = z.object({
 });
 
 export function registerMcpRoutes(app: FastifyInstance): void {
+  registerRemoteMcp(app);
+
   app.get('/api/mcp/clients', { preHandler: [app.authenticate] }, async (req) => {
     const userId = requireSession(req);
     return { clients: await listMcpClients(app.ctx.db, userId) };
@@ -29,6 +32,8 @@ export function registerMcpRoutes(app: FastifyInstance): void {
       secret: created.secret,
       baseUrl,
       config: renderMcpConfig(baseUrl, created.secret),
+      remoteUrl: remoteMcpUrl(baseUrl),
+      remoteConfig: renderRemoteMcpConfig(baseUrl, created.secret),
     });
   });
 

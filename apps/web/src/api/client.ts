@@ -185,10 +185,13 @@ export const api = {
   revokeToken: (id: string) => request<{ token: TokenPublic }>(`/api/tokens/${id}/revoke`, { method: 'POST' }),
   listMcpClients: () => request<{ clients: McpClientPublic[] }>('/api/mcp/clients'),
   createMcpClient: (name: string) =>
-    request<{ client: McpClientPublic; secret: string; baseUrl: string; config: string }>('/api/mcp/clients', {
-      method: 'POST',
-      body: JSON.stringify({ name }),
-    }),
+    request<{ client: McpClientPublic; secret: string; baseUrl: string; config: string; remoteUrl: string; remoteConfig: string }>(
+      '/api/mcp/clients',
+      {
+        method: 'POST',
+        body: JSON.stringify({ name }),
+      },
+    ),
   revokeMcpClient: (id: string) =>
     request<{ client: McpClientPublic }>(`/api/mcp/clients/${id}/revoke`, { method: 'POST' }),
   getSettings: () => request<{ settings: SettingsPublic }>('/api/settings'),

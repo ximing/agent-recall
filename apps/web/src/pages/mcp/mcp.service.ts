@@ -7,10 +7,11 @@ export class McpService extends Service {
   clients: McpClientPublic[] = [];
   name = '';
   freshConfig: string | null = null;
+  freshRemoteConfig: string | null = null;
   freshBaseUrl: string | null = null;
   pendingRevokeId: string | null = null;
   error: string | null = null;
-  copied = false;
+  copied: 'remote' | 'stdio' | null = null;
 
   setName(value: string): void {
     this.name = value;
@@ -18,13 +19,15 @@ export class McpService extends Service {
 
   dismissConfig(): void {
     this.freshConfig = null;
+    this.freshRemoteConfig = null;
     this.freshBaseUrl = null;
-    this.copied = false;
+    this.copied = null;
   }
 
-  async copyConfig(): Promise<void> {
-    if (!this.freshConfig) return;
-    this.copied = await copyText(this.freshConfig);
+  async copyConfig(which: 'remote' | 'stdio'): Promise<void> {
+    const text = which === 'remote' ? this.freshRemoteConfig : this.freshConfig;
+    if (!text) return;
+    this.copied = (await copyText(text)) ? which : null;
   }
 
   askRevoke(id: string): void {
@@ -55,6 +58,7 @@ export class McpService extends Service {
     try {
       const created = await api.createMcpClient(name);
       this.freshConfig = created.config;
+      this.freshRemoteConfig = created.remoteConfig;
       this.freshBaseUrl = created.baseUrl;
       this.name = '';
       this.pendingRevokeId = null;

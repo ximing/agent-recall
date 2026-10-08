@@ -119,6 +119,11 @@ describe('accounts, memories, and tokens', () => {
     expect(configText).toContain('"command": "npx"');
     expect(configText).toContain('@yeanzhi/agent-recall-mcp');
     expect(configText).not.toContain('dist/index.js');
+    const remoteText = String(mcp.body?.remoteConfig);
+    expect(remoteText).toContain('"type": "http"');
+    expect(remoteText).toContain('http://127.0.0.1:8787/mcp');
+    expect(remoteText).toContain(`Bearer ${mcpSecret}`);
+    expect(remoteText).not.toContain('memory_compress_file');
     const mcpList = await call(app, 'GET', '/api/mcp/clients', { cookie });
     expect(JSON.stringify(mcpList.body)).not.toContain(mcpSecret);
     expect(JSON.stringify(mcpList.body)).toContain((mcp.body?.client as { tokenPreview: string }).tokenPreview);
