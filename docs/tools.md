@@ -6,7 +6,7 @@
 
 `AGENT_RECALL_MCP_PROFILE` 决定宿主能看见哪些工具。表里的档位是最小可见面：标 `core` 的 12 个三档都有，标 `standard` 的从 standard 起（加上 core 一共 25 个），标 `full` 的只有 full。不设或写成这三档以外的值，都是 `full`。
 
-`memory_compress_file`、`memory_claude_bridge_sync`、`memory_obsidian_export` 在代理本机读写文件，只在 `full`。其余工具由服务器执行。
+`memory_compress_file`、`memory_claude_bridge_sync`、`memory_obsidian_export` 在代理本机读写文件，只在本机 stdio 的 `full`。远程 HTTPS MCP（`POST /mcp`）没有这三个工具。其余工具由服务器执行。
 
 ## 写入与遗忘
 
@@ -116,7 +116,7 @@
 | `memory_crystallize` | standard | 把一场会话收成一条摘要。同一小时内重复调用得到同一条 |
 | `memory_snapshot_create` | standard | 给整个记忆库做快照。恢复走 `POST /api/snapshots/:id/restore` |
 | `memory_reflect` | full | 根据最近几天写一条反思。抽取已有内容，不调用大模型 |
-| `memory_consolidate` | full | 合并近似重复，可 `dryRun` |
+| `memory_consolidate` | full | 合并内容哈希相同的链。配置了大模型后，确认合并还会做语义合并。`dryRun` 不调用模型 |
 | `memory_heal` | full | 重新索引，并跑一遍自动遗忘 |
 | `memory_diagnose` | full | 体检，返回问题和统计 |
 | `memory_audit` | full | 最近的审计记录 |
