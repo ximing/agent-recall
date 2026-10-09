@@ -481,10 +481,21 @@ export const llmUsageSchema = z.object({
 });
 export type LlmUsagePublic = z.infer<typeof llmUsageSchema>;
 
+export const llmUsageBreakdownSchema = z.object({
+  capability: llmCapabilitySchema,
+  calls: z.number().int(),
+  promptTokens: z.number().int(),
+  completionTokens: z.number().int(),
+  totalTokens: z.number().int(),
+  costEstimate: z.number(),
+});
+export type LlmUsageBreakdown = z.infer<typeof llmUsageBreakdownSchema>;
+
 export const llmUsageListSchema = z.object({
   logs: z.array(llmUsageSchema),
   totalCost: z.number(),
   totalTokens: z.number().int(),
+  byCapability: z.array(llmUsageBreakdownSchema),
 });
 export type LlmUsageList = z.infer<typeof llmUsageListSchema>;
 

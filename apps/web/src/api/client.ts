@@ -209,7 +209,7 @@ export const api = {
   setDefaultLlmConfig: (id: string) =>
     request<{ config: LlmConfigPublic }>(`/api/llm-configs/${id}/default`, { method: 'PUT' }),
   testLlmConfig: (id: string) => request<LlmTestResult>(`/api/llm-configs/${id}/test`, { method: 'POST' }),
-  listLlmUsage: () => request<LlmUsageList>('/api/llm-usage'),
+  listLlmUsage: (limit = 100) => request<LlmUsageList>(`/api/llm-usage?limit=${limit}`),
   graphQuery: (q?: string, limit?: number) => {
     const params = new URLSearchParams();
     if (q) params.set('q', q);

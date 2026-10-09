@@ -1,8 +1,5 @@
 import { observer, useService } from '@rabjs/react';
-import { formatTime } from '@/utils/format';
-import { formatCost, LlmService } from './llm.service';
-
-const CAPABILITY_LABEL = { chat: '对话', embed: '向量', rerank: '精排' } as const;
+import { LlmService } from './llm.service';
 
 export const LlmSection = observer(function LlmSection() {
   const service = useService(LlmService);
@@ -128,71 +125,6 @@ export const LlmSection = observer(function LlmSection() {
                       </span>
                     )}
                   </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </section>
-  );
-});
-
-export const UsageSection = observer(function UsageSection() {
-  const service = useService(LlmService);
-  return (
-    <section className="panel setting-section" id="cost">
-      <div className="panel-head" style={{ alignItems: 'center' }}>
-        <h2>调用成本</h2>
-        <span className="badge mode-badge">
-          <span className="dot" />
-          估算 {formatCost(service.totalCost)}
-        </span>
-      </div>
-      <p className="section-desc">
-        对话、向量和精排都会记一笔。金额是按公开单价估算的，不是提供商账单。这里不保存提示词。
-      </p>
-      <div className="summary-strip">
-        <div className="sum-item">
-          <p className="sum-num">{formatCost(service.totalCost)}</p>
-          <p className="sum-label">累计估算</p>
-        </div>
-        <div className="sum-item">
-          <p className="sum-num">{service.totalTokens}</p>
-          <p className="sum-label">累计 token</p>
-        </div>
-        <div className="sum-item">
-          <p className="sum-num">{service.logs.length}</p>
-          <p className="sum-label">最近记录</p>
-        </div>
-      </div>
-      {service.logs.length === 0 ? (
-        <div className="empty" style={{ margin: '0 18px 16px' }}>
-          <p className="empty-title">还没有调用</p>
-          <p>写入记忆、召回或测试模型之后，这里会出现记录。</p>
-        </div>
-      ) : (
-        <div className="ledger" style={{ marginTop: 12 }}>
-          <table>
-            <thead>
-              <tr>
-                <th>能力</th>
-                <th>模型</th>
-                <th>token</th>
-                <th>估算</th>
-                <th>时间</th>
-              </tr>
-            </thead>
-            <tbody>
-              {service.logs.map((log) => (
-                <tr key={log.id}>
-                  <td>{CAPABILITY_LABEL[log.capability]}</td>
-                  <td className="mono">
-                    {log.provider}/{log.model}
-                  </td>
-                  <td className="time">{log.totalTokens}</td>
-                  <td className="time">{formatCost(log.costEstimate)}</td>
-                  <td className="time">{formatTime(log.createdAt)}</td>
                 </tr>
               ))}
             </tbody>

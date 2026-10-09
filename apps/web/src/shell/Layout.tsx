@@ -1,5 +1,5 @@
 import { observer, useService } from '@rabjs/react';
-import { Bookmark, History, KeyRound, LayoutDashboard, ListTodo, Monitor, Moon, Settings, Sun, Waypoints, Wrench } from 'lucide-react';
+import { Bookmark, History, KeyRound, LayoutDashboard, ListTodo, Monitor, Moon, Receipt, Settings, Sun, Waypoints, Wrench } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router';
 import { ROUTES } from '@/routes';
@@ -53,6 +53,10 @@ export const Layout = observer(function Layout({ children }: { children: ReactNo
           <NavLink to={ROUTES.mcp}>
             <Monitor size={16} strokeWidth={1.6} />
             MCP 客户端
+          </NavLink>
+          <NavLink to={ROUTES.cost}>
+            <Receipt size={16} strokeWidth={1.6} />
+            调用成本
           </NavLink>
           <NavLink to={ROUTES.settings}>
             <Settings size={16} strokeWidth={1.6} />

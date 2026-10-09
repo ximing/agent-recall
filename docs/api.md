@@ -29,7 +29,7 @@
 | `POST /api/mcp/tools/call` | 两者 | 执行一个服务端工具。`{ name, arguments, profile? }` |
 | `POST /mcp` | token | 远程 MCP，无状态 JSON-RPC。`initialize`、`tools/list`、`tools/call`、`ping`。GET 和 DELETE 为 405。不使用网页 cookie。`?profile=` 或请求头 `x-agent-recall-profile` 选档，默认 full 的 62 个服务器工具 |
 | `GET` `POST /api/llm-configs`，`PUT` `DELETE /api/llm-configs/:id`，`PUT /:id/default`，`POST /:id/test` | 两者 | 用户自己的对话模型。提供商 openai、deepseek、claude、zhipu、dashscope。密钥加密，响应只有预览 |
-| `GET /api/llm-usage` | 两者 | 对话、向量、精排的用量和估算成本 |
+| `GET /api/llm-usage` | 两者 | 最近调用记录，默认 50 条，最多 100 条。`byCapability`、`totalCost`、`totalTokens` 是该用户全部调用的合计，固定包含对话、向量、精排，没有记录时为 0。金额是公开单价估算 |
 | `GET` `PUT /api/settings` | 两者 | 精排、自动遗忘等 |
 | `GET` `PUT` `DELETE /api/kv/:namespace/:key`，`GET /api/kv/:namespace`，`POST .../append` | 两者 | KV：槽位、信号、档案、租约 |
 | `GET /api/graph/query`，`GET /api/memories/:id/relations` | 两者 | 关系图 |

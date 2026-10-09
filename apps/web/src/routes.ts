@@ -9,6 +9,7 @@ export const ROUTES = {
   ops: '/ops',
   tokens: '/tokens',
   mcp: '/mcp',
+  cost: '/cost',
   settings: '/settings',
 } as const;
 
@@ -25,5 +26,6 @@ export const PAGE_LIST: ReadonlyArray<{ path: AppRoute; title: string; auth: boo
   { path: ROUTES.ops, title: '治理', auth: true },
   { path: ROUTES.tokens, title: '令牌', auth: true },
   { path: ROUTES.mcp, title: 'MCP', auth: true },
+  { path: ROUTES.cost, title: '调用成本', auth: true },
   { path: ROUTES.settings, title: '设置', auth: true },
 ];

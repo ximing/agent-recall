@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { LlmCapability, LlmUsageList, LlmUsagePublic } from '@agent-recall/dto';
+import type { LlmCapability, LlmUsageBreakdown, LlmUsageList, LlmUsagePublic } from '@agent-recall/dto';
 import { desc, eq, sql } from 'drizzle-orm';
 import type { Database } from '../db/client.js';
 import { llmUsageLogs } from '../db/schema.js';
@@ -25,6 +25,8 @@ export interface ModelUsageInput {
   costEstimate: number;
   latencyMs?: number | null;
 }
+
+const USAGE_CAPABILITIES: readonly LlmCapability[] = ['chat', 'embed', 'rerank'];
 
 function asNumber(value: unknown): number {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
@@ -148,9 +150,33 @@ export async function listLlmUsage(db: Database, userId: string, limit: number):
     })
     .from(llmUsageLogs)
     .where(eq(llmUsageLogs.userId, userId));
+  const grouped = await db
+    .select({
+      capability: llmUsageLogs.capability,
+      calls: sql<string>`count(*)`,
+      promptTokens: sql<string>`coalesce(sum(${llmUsageLogs.promptTokens}), 0)`,
+      completionTokens: sql<string>`coalesce(sum(${llmUsageLogs.completionTokens}), 0)`,
+      totalTokens: sql<string>`coalesce(sum(${llmUsageLogs.totalTokens}), 0)`,
+      cost: sql<string>`coalesce(sum(${llmUsageLogs.costEstimate}), 0)`,
+    })
+    .from(llmUsageLogs)
+    .where(eq(llmUsageLogs.userId, userId))
+    .groupBy(llmUsageLogs.capability);
+  const byCapability: LlmUsageBreakdown[] = USAGE_CAPABILITIES.map((capability) => {
+    const row = grouped.find((item) => item.capability === capability);
+    return {
+      capability,
+      calls: Math.round(asNumber(row?.calls)),
+      promptTokens: Math.round(asNumber(row?.promptTokens)),
+      completionTokens: Math.round(asNumber(row?.completionTokens)),
+      totalTokens: Math.round(asNumber(row?.totalTokens)),
+      costEstimate: asNumber(row?.cost),
+    };
+  });
   return {
     logs: rows.map(toPublic),
     totalCost: asNumber(sum?.cost),
     totalTokens: Math.round(asNumber(sum?.tokens)),
+    byCapability,
   };
 }

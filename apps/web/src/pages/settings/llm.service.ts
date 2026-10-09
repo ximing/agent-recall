@@ -4,7 +4,6 @@ import {
   LLM_SUGGESTED_MODEL,
   type LlmConfigPublic,
   type LlmProvider,
-  type LlmUsagePublic,
 } from '@agent-recall/dto';
 import { Service } from '@rabjs/react';
 import { api, errorMessage } from '@/api/client';
@@ -17,18 +16,8 @@ export const LLM_PROVIDER_LABELS: Record<LlmProvider, string> = {
   dashscope: '通义千问',
 };
 
-export function formatCost(value: number): string {
-  if (!Number.isFinite(value) || value === 0) return '$0';
-  if (value < 0.0001) return `$${value.toExponential(2)}`;
-  const fixed = value.toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
-  return `$${fixed}`;
-}
-
 export class LlmService extends Service {
   configs: LlmConfigPublic[] = [];
-  logs: LlmUsagePublic[] = [];
-  totalCost = 0;
-  totalTokens = 0;
   provider: LlmProvider = 'openai';
   model = LLM_SUGGESTED_MODEL.openai;
   baseUrl = '';
@@ -81,11 +70,8 @@ export class LlmService extends Service {
   async load(): Promise<void> {
     this.error = null;
     try {
-      const [configs, usage] = await Promise.all([api.listLlmConfigs(), api.listLlmUsage()]);
+      const configs = await api.listLlmConfigs();
       this.configs = configs.configs;
-      this.logs = usage.logs;
-      this.totalCost = usage.totalCost;
-      this.totalTokens = usage.totalTokens;
       if (this.configs.length === 0) this.makeDefault = true;
     } catch (err) {
       this.error = errorMessage(err, '读取模型配置失败');

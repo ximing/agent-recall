@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { llmUsageListSchema } from '@agent-recall/dto';
 import { eq } from 'drizzle-orm';
 import { agentExecutions, llmUsageLogs } from '../db/schema.js';
 import { chatCompletionsUrl, anthropicMessagesUrl, llmTransport } from './client.js';
@@ -88,8 +89,11 @@ describe('llm configs, cost ledger, and semantic consolidate', () => {
     expect(JSON.stringify(tested.body)).not.toContain(apiKey);
 
     const usage = await call(app, 'GET', '/api/llm-usage', { token });
-    const logs = (usage.body?.logs as Array<{ capability: string; model: string; promptTokens: number }>) ?? [];
-    expect(logs.some((row) => row.capability === 'chat' && row.model === 'gpt-4o-mini' && row.promptTokens > 0)).toBe(true);
+    const parsed = llmUsageListSchema.parse(usage.body);
+    expect(parsed.logs.some((row) => row.capability === 'chat' && row.model === 'gpt-4o-mini' && row.promptTokens > 0)).toBe(true);
+    expect(parsed.byCapability.map((row) => row.capability)).toEqual(['chat', 'embed', 'rerank']);
+    const chat = parsed.byCapability.find((row) => row.capability === 'chat');
+    expect(chat && chat.calls > 0 && chat.promptTokens > 0 && chat.totalTokens >= chat.promptTokens).toBe(true);
 
     const switched = await call(app, 'PUT', `/api/llm-configs/${(second.body?.config as { id: string }).id}/default`, { cookie });
     expect((switched.body?.config as { isDefault: boolean }).isDefault).toBe(true);
@@ -153,6 +157,12 @@ describe('llm configs, cost ledger, and semantic consolidate', () => {
     expect(rows.some((row) => row.capability === 'embed' && row.model === 'qwen3-vl-embedding' && row.promptTokens > 0)).toBe(true);
     expect(rows.some((row) => row.capability === 'rerank' && row.model === 'gte-rerank-v2')).toBe(true);
     expect(rows.every((row) => !JSON.stringify(row).includes('rerank-secret'))).toBe(true);
+    const usage = llmUsageListSchema.parse((await call(app, 'GET', '/api/llm-usage', { token })).body);
+    const embed = usage.byCapability.find((row) => row.capability === 'embed');
+    const rerank = usage.byCapability.find((row) => row.capability === 'rerank');
+    expect(embed && embed.calls > 0 && embed.promptTokens > 0 && embed.totalTokens >= embed.promptTokens).toBe(true);
+    expect(rerank && rerank.calls > 0 && rerank.totalTokens > 0).toBe(true);
+    expect(usage.totalTokens).toBeGreaterThanOrEqual(usage.byCapability.reduce((sum, row) => sum + row.totalTokens, 0));
   });
 
   it('skips semantic merge until a model exists, then evolves by title inside the project', async () => {

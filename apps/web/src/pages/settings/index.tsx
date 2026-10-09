@@ -1,7 +1,9 @@
 import { bindServices, observer, useService } from '@rabjs/react';
 import { Fragment, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { formatTime } from '@/utils/format';
-import { LlmSection, UsageSection } from './llm-section';
+import { ROUTES } from '@/routes';
+import { LlmSection } from './llm-section';
 import { LlmService } from './llm.service';
 import { SettingsService } from './settings.service';
 import './settings.css';
@@ -9,7 +11,6 @@ import '@/styles/ledger.css';
 
 const ANCHORS = [
   { id: 'llm', label: '大模型' },
-  { id: 'cost', label: '调用成本' },
   { id: 'rerank', label: '召回精排' },
   { id: 'maintain', label: '记忆维护' },
   { id: 'history', label: '召回历史' },
@@ -18,6 +19,7 @@ const ANCHORS = [
 const SettingsPage = observer(function SettingsPage() {
   const service = useService(SettingsService);
   const llm = useService(LlmService);
+  const navigate = useNavigate();
   const [activeAnchor, setActiveAnchor] = useState<string>('llm');
 
   useEffect(() => {
@@ -26,11 +28,20 @@ const SettingsPage = observer(function SettingsPage() {
   }, [service, llm]);
 
   useEffect(() => {
-    const id = window.location.hash.slice(1);
-    if (!ANCHORS.some((anchor) => anchor.id === id)) return;
-    setActiveAnchor(id);
-    document.getElementById(id)?.scrollIntoView();
-  }, []);
+    function syncHash(): void {
+      const id = window.location.hash.slice(1);
+      if (id === 'cost') {
+        navigate(ROUTES.cost, { replace: true });
+        return;
+      }
+      if (!ANCHORS.some((anchor) => anchor.id === id)) return;
+      setActiveAnchor(id);
+      document.getElementById(id)?.scrollIntoView();
+    }
+    syncHash();
+    window.addEventListener('hashchange', syncHash);
+    return () => window.removeEventListener('hashchange', syncHash);
+  }, [navigate]);
 
   const settings = service.settings;
 
@@ -39,7 +50,7 @@ const SettingsPage = observer(function SettingsPage() {
       <header className="page-head">
         <div>
           <h1>设置</h1>
-          <p className="desc">模型、调用成本、检索策略、自动遗忘与召回历史。改动即时生效，不需要重启服务。</p>
+          <p className="desc">大模型、召回精排、记忆维护与召回历史。改动即时生效，不需要重启服务。</p>
         </div>
       </header>
 
@@ -65,7 +76,6 @@ const SettingsPage = observer(function SettingsPage() {
 
         <div>
           <LlmSection />
-          <UsageSection />
 
           {/* 召回精排 */}
           <section className="panel setting-section" id="rerank">
