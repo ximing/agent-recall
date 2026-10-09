@@ -9,7 +9,10 @@ export const ConsolidatePanel = observer(function ConsolidatePanel() {
       <div className="ops-card-head">
         <h2>近重复合并</h2>
       </div>
-      <p className="desc">内容哈希相同、又分属不同版本链的记忆，只保留最新一条链。</p>
+      <p className="desc">
+        内容哈希相同、又分属不同版本链的记忆，只保留最新一条链。设置里配置大模型后，确认合并还会把说法不同、但讲的是同一件事的
+        lesson、pattern、bug、architecture、workflow 收成一条。预览不调用模型。
+      </p>
       {preview ? (
         <div className="result danger-text">
           {preview.groups} 组重复，将去掉 {preview.merged} 条链。
@@ -18,12 +21,7 @@ export const ConsolidatePanel = observer(function ConsolidatePanel() {
       <div className="ops-card-foot">
         {preview ? (
           <>
-            <button
-              type="button"
-              className="btn danger"
-              disabled={preview.merged === 0}
-              onClick={() => void service.confirmConsolidate()}
-            >
+            <button type="button" className="btn danger" onClick={() => void service.confirmConsolidate()}>
               确认合并
             </button>
             <button type="button" className="btn" onClick={() => service.cancelConsolidate()}>

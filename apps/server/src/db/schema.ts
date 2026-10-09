@@ -1,4 +1,5 @@
-import { boolean, index, integer, jsonb, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+import { boolean, index, integer, jsonb, numeric, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core';
 
 const timestamptz = (name: string) => timestamp(name, { withTimezone: true, mode: 'date' });
 
@@ -209,3 +210,91 @@ export const shareInvites = pgTable(
 );
 
 export type ShareInviteRow = typeof shareInvites.$inferSelect;
+
+/** 用户自己的对话模型。密钥加密后入库，接口只回预览。 */
+export const llmConfigs = pgTable(
+  'llm_configs',
+  {
+    id: uuid('id').primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    provider: varchar('provider', { length: 32 }).notNull(),
+    apiKeyEncrypted: text('api_key_encrypted').notNull(),
+    model: varchar('model', { length: 128 }).notNull(),
+    isDefault: boolean('is_default').notNull().default(false),
+    baseUrl: varchar('base_url', { length: 512 }),
+    createdAt: timestamptz('created_at').notNull(),
+    updatedAt: timestamptz('updated_at').notNull(),
+  },
+  (table) => [
+    index('llm_configs_user_created_idx').on(table.userId, table.createdAt),
+    uniqueIndex('llm_configs_user_default_uidx').on(table.userId).where(sql`${table.isDefault} = true`),
+  ],
+);
+
+export type LlmConfigRow = typeof llmConfigs.$inferSelect;
+
+export interface AgentStep {
+  name: string;
+  ok: boolean;
+  note?: string;
+}
+
+export interface AgentTurnMeta {
+  role: 'system' | 'user' | 'assistant';
+  chars: number;
+}
+
+/** 一次 agent 任务。不存提示词正文，避免把记忆里的秘密写进执行记录。 */
+export const agentExecutions = pgTable(
+  'agent_executions',
+  {
+    id: uuid('id').primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    agentType: varchar('agent_type', { length: 32 }).notNull(),
+    status: varchar('status', { length: 16 }).notNull(),
+    startedAt: timestamptz('started_at').notNull(),
+    finishedAt: timestamptz('finished_at'),
+    steps: jsonb('steps').$type<AgentStep[]>().notNull(),
+    turns: jsonb('turns').$type<AgentTurnMeta[]>().notNull(),
+    error: text('error'),
+    resultSummary: text('result_summary'),
+    createdAt: timestamptz('created_at').notNull(),
+  },
+  (table) => [
+    index('agent_executions_user_started_idx').on(table.userId, table.startedAt),
+    index('agent_executions_type_status_idx').on(table.agentType, table.status),
+  ],
+);
+
+export type AgentExecutionRow = typeof agentExecutions.$inferSelect;
+
+export const llmUsageLogs = pgTable(
+  'llm_usage_logs',
+  {
+    id: uuid('id').primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    executionId: uuid('execution_id').references(() => agentExecutions.id, { onDelete: 'set null' }),
+    provider: varchar('provider', { length: 32 }).notNull(),
+    model: varchar('model', { length: 128 }).notNull(),
+    capability: varchar('capability', { length: 16 }).notNull(),
+    promptTokens: integer('prompt_tokens').notNull(),
+    completionTokens: integer('completion_tokens').notNull(),
+    totalTokens: integer('total_tokens').notNull(),
+    costEstimate: numeric('cost_estimate', { precision: 14, scale: 8, mode: 'number' }).notNull(),
+    latencyMs: integer('latency_ms'),
+    createdAt: timestamptz('created_at').notNull(),
+  },
+  (table) => [
+    index('llm_usage_logs_user_created_idx').on(table.userId, table.createdAt),
+    index('llm_usage_logs_execution_idx').on(table.executionId),
+    index('llm_usage_logs_capability_created_idx').on(table.capability, table.createdAt),
+  ],
+);
+
+export type LlmUsageRow = typeof llmUsageLogs.$inferSelect;

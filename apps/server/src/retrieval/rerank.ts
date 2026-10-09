@@ -1,3 +1,4 @@
+import { estimateTokens, readUsageTokens } from '../llm/pricing.js';
 import { requestJson, RetrievalError, type RetrievalErrorCode } from './http.js';
 import { assertRerankBaseUrl } from './url-guard.js';
 
@@ -15,8 +16,13 @@ export interface RerankResult {
   score: number;
 }
 
+export interface RerankOutcome {
+  results: RerankResult[];
+  promptTokens: number;
+}
+
 export interface RerankClient {
-  rerankTexts(query: string, documents: string[], topN: number): Promise<RerankResult[]>;
+  rerankTexts(query: string, documents: string[], topN: number): Promise<RerankOutcome>;
 }
 
 // 响应结构与 inwit 线上验证一致：output.results[] 携带 {index, relevance_score}
@@ -64,7 +70,7 @@ export function createRerankClient(options: RerankClientOptions): RerankClient {
 
   return {
     async rerankTexts(query, documents, topN) {
-      if (documents.length === 0) return [];
+      if (documents.length === 0) return { results: [], promptTokens: 0 };
       try {
         // 请求前再验一次：库里已经存下的内网地址也要失败关闭。
         await assertRerankBaseUrl(url, { appEnv: options.appEnv });
@@ -85,7 +91,10 @@ export function createRerankClient(options: RerankClientOptions): RerankClient {
         if (res.status < 200 || res.status >= 300) {
           throw new RetrievalError(statusCode(res.status), rerankStatusMessage(res.status), res.status);
         }
-        return parseRerankResponse(res.json);
+        return {
+          results: parseRerankResponse(res.json),
+          promptTokens: readUsageTokens(res.json, estimateTokens([query, ...documents].join('\n'))),
+        };
       } catch (err) {
         const message = publicRerankFailure(err);
         if (err instanceof RetrievalError && err.message === message) throw err;

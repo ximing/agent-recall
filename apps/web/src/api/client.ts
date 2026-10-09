@@ -12,6 +12,10 @@ import type {
   ImportStrategy,
   KvEntryPublic,
   KvPutInput,
+  CreateLlmConfigInput,
+  LlmConfigPublic,
+  LlmTestResult,
+  LlmUsageList,
   McpClientPublic,
   MemoryCreateInput,
   MemoryListQuery,
@@ -198,6 +202,14 @@ export const api = {
   updateSettings: (input: SettingsUpdateInput) =>
     request<{ settings: SettingsPublic }>('/api/settings', { method: 'PUT', body: JSON.stringify(input) }),
   listRecallLogs: () => request<{ logs: RecallLogPublic[] }>('/api/memories/recall-logs'),
+  listLlmConfigs: () => request<{ configs: LlmConfigPublic[] }>('/api/llm-configs'),
+  createLlmConfig: (input: CreateLlmConfigInput) =>
+    request<{ config: LlmConfigPublic }>('/api/llm-configs', { method: 'POST', body: JSON.stringify(input) }),
+  deleteLlmConfig: (id: string) => request<void>(`/api/llm-configs/${id}`, { method: 'DELETE' }),
+  setDefaultLlmConfig: (id: string) =>
+    request<{ config: LlmConfigPublic }>(`/api/llm-configs/${id}/default`, { method: 'PUT' }),
+  testLlmConfig: (id: string) => request<LlmTestResult>(`/api/llm-configs/${id}/test`, { method: 'POST' }),
+  listLlmUsage: () => request<LlmUsageList>('/api/llm-usage'),
   graphQuery: (q?: string, limit?: number) => {
     const params = new URLSearchParams();
     if (q) params.set('q', q);

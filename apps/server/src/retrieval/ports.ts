@@ -1,4 +1,5 @@
 import type { AppConfig } from '../config.js';
+import type { ModelUsageInput } from '../llm/usage.js';
 import { createEmbeddingClient, type EmbeddingClient } from './embedding.js';
 import { RetrievalError } from './http.js';
 import { createMeiliClient, type MeiliClient } from './meili.js';
@@ -10,6 +11,10 @@ export interface RetrievalPorts {
   embeddings: EmbeddingClient;
   meiliIndex: string;
   qdrantCollection: string;
+  /** 服务端 embedding 走 DashScope 多模态接口，成本记在这条记忆或这次查询的用户上。 */
+  embeddingProvider: string;
+  embeddingModel: string;
+  recordUsage?: (entry: ModelUsageInput) => Promise<void>;
 }
 
 function disabled<T extends object>(label: string): T {
@@ -49,5 +54,7 @@ export function createRetrieval(config: AppConfig): RetrievalPorts {
     embeddings,
     meiliIndex: config.MEILI_INDEX,
     qdrantCollection: config.QDRANT_COLLECTION,
+    embeddingProvider: 'dashscope',
+    embeddingModel: config.EMBEDDING_MODEL,
   };
 }

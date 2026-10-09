@@ -8,6 +8,8 @@ import { AppError } from '../errors.js';
 import { recordAudit } from '../audit/log.js';
 import type { RetrievalPorts } from '../retrieval/ports.js';
 import { indexMemory, recallMemories, type Reranker } from '../retrieval/recall.js';
+import { estimateCost, estimateTokens } from '../llm/pricing.js';
+import { safeRecordUsage } from '../llm/usage.js';
 import { createRerankClient } from '../retrieval/rerank.js';
 import { getRerankApiKey, getSettings } from '../settings/service.js';
 import type { UserSettingsRow } from '../db/schema.js';
@@ -330,7 +332,13 @@ export async function markAccessed(deps: MemoryDeps, userId: string, ids: string
   }
 }
 
-function buildReranker(settings: UserSettingsRow, encryptionKey: string, appEnv: string | undefined): Reranker | undefined {
+function buildReranker(
+  settings: UserSettingsRow,
+  encryptionKey: string,
+  appEnv: string | undefined,
+  userId: string,
+  recordUsage: MemoryDeps['retrieval']['recordUsage'],
+): Reranker | undefined {
   const apiKey = getRerankApiKey(settings, encryptionKey);
   if (!settings.rerankEnabled || !apiKey) return undefined;
   const client = createRerankClient({
@@ -339,17 +347,45 @@ function buildReranker(settings: UserSettingsRow, encryptionKey: string, appEnv:
     model: settings.rerankModel,
     appEnv,
   });
+  const provider = 'dashscope';
+  const model = settings.rerankModel;
   return {
     async rerank(query, docs) {
-      const results = await client.rerankTexts(
-        query,
-        docs.map((doc) => doc.text),
-        docs.length,
-      );
-      return results.flatMap((result) => {
-        const doc = docs[result.index];
-        return doc ? [{ id: doc.id, score: result.score }] : [];
-      });
+      const started = Date.now();
+      const documents = docs.map((doc) => doc.text);
+      try {
+        const outcome = await client.rerankTexts(query, documents, docs.length);
+        const promptTokens = outcome.promptTokens;
+        await safeRecordUsage(recordUsage, {
+          userId,
+          provider,
+          model,
+          capability: 'rerank',
+          promptTokens,
+          completionTokens: 0,
+          totalTokens: promptTokens,
+          costEstimate: estimateCost({ provider, model, capability: 'rerank', promptTokens, completionTokens: 0 }),
+          latencyMs: Date.now() - started,
+        });
+        return outcome.results.flatMap((result) => {
+          const doc = docs[result.index];
+          return doc ? [{ id: doc.id, score: result.score }] : [];
+        });
+      } catch (err) {
+        const promptTokens = estimateTokens([query, ...documents].join('\n'));
+        await safeRecordUsage(recordUsage, {
+          userId,
+          provider,
+          model,
+          capability: 'rerank',
+          promptTokens,
+          completionTokens: 0,
+          totalTokens: promptTokens,
+          costEstimate: estimateCost({ provider, model, capability: 'rerank', promptTokens, completionTokens: 0 }),
+          latencyMs: Date.now() - started,
+        });
+        throw err;
+      }
     },
   };
 }
@@ -368,7 +404,7 @@ export async function recallForUser(
   options: { filter?: MemoryFilter; deep?: boolean } = {},
 ): Promise<RecallResult> {
   const settings = await getSettings(deps.db, userId);
-  const reranker = buildReranker(settings, deps.encryptionKey, deps.appEnv);
+  const reranker = buildReranker(settings, deps.encryptionKey, deps.appEnv, userId, deps.retrieval.recordUsage);
   const started = performance.now();
   const outcome = await recallMemories(deps.db, deps.retrieval, userId, query, limit, {
     reranker,

@@ -375,13 +375,118 @@ export const consolidateSchema = z.object({
 });
 export type ConsolidateInput = z.infer<typeof consolidateSchema>;
 
+export const semanticConsolidateSchema = z.object({
+  /** true = 没有调用模型 */
+  skipped: z.boolean(),
+  reason: z.string().optional(),
+  created: z.number().int(),
+  evolved: z.number().int(),
+  absorbed: z.number().int(),
+  executionId: z.string().uuid().optional(),
+});
+export type SemanticConsolidateResult = z.infer<typeof semanticConsolidateSchema>;
+
 export const consolidateResultSchema = z.object({
   /** 存在重复链的 contentHash 分组数 */
   groups: z.number().int(),
   /** 被合并（删除）的链数 */
   merged: z.number().int(),
+  /** 用户配置了大模型时的语义合并；预览和未配置时跳过 */
+  semantic: semanticConsolidateSchema,
 });
 export type ConsolidateResult = z.infer<typeof consolidateResultSchema>;
+
+export const LLM_PROVIDERS = ['openai', 'deepseek', 'claude', 'zhipu', 'dashscope'] as const;
+export const llmProviderSchema = z.enum(LLM_PROVIDERS);
+export type LlmProvider = z.infer<typeof llmProviderSchema>;
+
+/** OpenAI 兼容或 Anthropic 的默认根地址。自定义 baseUrl 为空时用这份。 */
+export const LLM_DEFAULT_BASE_URL: Record<LlmProvider, string> = {
+  openai: 'https://api.openai.com/v1',
+  deepseek: 'https://api.deepseek.com',
+  claude: 'https://api.anthropic.com',
+  zhipu: 'https://open.bigmodel.cn/api/paas/v4',
+  dashscope: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+};
+
+export const LLM_SUGGESTED_MODEL: Record<LlmProvider, string> = {
+  openai: 'gpt-4o-mini',
+  deepseek: 'deepseek-chat',
+  claude: 'claude-sonnet-4-5',
+  zhipu: 'glm-4-flash',
+  dashscope: 'qwen-plus',
+};
+
+const optionalBaseUrl = z
+  .string()
+  .trim()
+  .max(512)
+  .nullable()
+  .optional()
+  .transform((value) => {
+    if (value == null) return value;
+    const trimmed = value.trim();
+    return trimmed.length === 0 ? null : trimmed;
+  })
+  .refine((value) => value == null || z.string().url().safeParse(value).success, { message: 'baseUrl' });
+
+export const createLlmConfigSchema = z.object({
+  provider: llmProviderSchema,
+  apiKey: z.string().trim().min(1).max(512),
+  model: z.string().trim().min(1).max(128),
+  isDefault: z.boolean().optional(),
+  baseUrl: optionalBaseUrl,
+});
+export type CreateLlmConfigInput = z.infer<typeof createLlmConfigSchema>;
+
+export const updateLlmConfigSchema = z.object({
+  apiKey: z.string().trim().min(1).max(512).optional(),
+  model: z.string().trim().min(1).max(128).optional(),
+  baseUrl: optionalBaseUrl,
+});
+export type UpdateLlmConfigInput = z.infer<typeof updateLlmConfigSchema>;
+
+export const llmConfigSchema = z.object({
+  id: z.string().uuid(),
+  provider: llmProviderSchema,
+  model: z.string(),
+  isDefault: z.boolean(),
+  baseUrl: z.string().nullable(),
+  apiKeyPreview: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type LlmConfigPublic = z.infer<typeof llmConfigSchema>;
+
+export const llmTestResultSchema = z.object({
+  ok: z.boolean(),
+  error: z.string().optional(),
+});
+export type LlmTestResult = z.infer<typeof llmTestResultSchema>;
+
+export const llmCapabilitySchema = z.enum(['chat', 'embed', 'rerank']);
+export type LlmCapability = z.infer<typeof llmCapabilitySchema>;
+
+export const llmUsageSchema = z.object({
+  id: z.string().uuid(),
+  provider: z.string(),
+  model: z.string(),
+  capability: llmCapabilitySchema,
+  promptTokens: z.number().int(),
+  completionTokens: z.number().int(),
+  totalTokens: z.number().int(),
+  costEstimate: z.number(),
+  latencyMs: z.number().int().nullable(),
+  createdAt: z.string(),
+});
+export type LlmUsagePublic = z.infer<typeof llmUsageSchema>;
+
+export const llmUsageListSchema = z.object({
+  logs: z.array(llmUsageSchema),
+  totalCost: z.number(),
+  totalTokens: z.number().int(),
+});
+export type LlmUsageList = z.infer<typeof llmUsageListSchema>;
 
 // ---- 反思 ----
 

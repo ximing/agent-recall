@@ -1,5 +1,7 @@
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import type { MemoryFilter, Origin } from '@agent-recall/dto';
+import { estimateCost, estimateTokens } from '../llm/pricing.js';
+import { safeRecordUsage } from '../llm/usage.js';
 import type { Database } from '../db/client.js';
 import { memories, type MemoryRow } from '../db/schema.js';
 import type { RetrievalPorts } from './ports.js';
@@ -49,6 +51,48 @@ function ensureProjectFilterable(retrieval: RetrievalPorts): Promise<void> {
   return pending;
 }
 
+function isUnconfigured(err: unknown): boolean {
+  return err instanceof Error && err.message.includes('is not configured');
+}
+
+async function embedObserved(retrieval: RetrievalPorts, userId: string, texts: string[]): Promise<number[][]> {
+  const started = Date.now();
+  const provider = retrieval.embeddingProvider;
+  const model = retrieval.embeddingModel;
+  try {
+    const embedded = await retrieval.embeddings.embedTexts(texts);
+    const promptTokens = embedded.promptTokens;
+    await safeRecordUsage(retrieval.recordUsage, {
+      userId,
+      provider,
+      model,
+      capability: 'embed',
+      promptTokens,
+      completionTokens: 0,
+      totalTokens: promptTokens,
+      costEstimate: estimateCost({ provider, model, capability: 'embed', promptTokens, completionTokens: 0 }),
+      latencyMs: Date.now() - started,
+    });
+    return embedded.vectors;
+  } catch (err) {
+    if (!isUnconfigured(err)) {
+      const promptTokens = estimateTokens(texts.join('\n'));
+      await safeRecordUsage(retrieval.recordUsage, {
+        userId,
+        provider,
+        model,
+        capability: 'embed',
+        promptTokens,
+        completionTokens: 0,
+        totalTokens: promptTokens,
+        costEstimate: estimateCost({ provider, model, capability: 'embed', promptTokens, completionTokens: 0 }),
+        latencyMs: Date.now() - started,
+      });
+    }
+    throw err;
+  }
+}
+
 export async function indexMemory(retrieval: RetrievalPorts, row: MemoryRow): Promise<void> {
   const failures: unknown[] = [];
   try {
@@ -69,7 +113,7 @@ export async function indexMemory(retrieval: RetrievalPorts, row: MemoryRow): Pr
   }
   try {
     await retrieval.qdrant.ensureCollection(retrieval.qdrantCollection, { payloadFields: ['user_id', 'project'] });
-    const [vector] = await retrieval.embeddings.embedTexts([row.content]);
+    const [vector] = await embedObserved(retrieval, row.userId, [row.content]);
     if (!vector) throw new Error('embedding returned no vector');
     await retrieval.qdrant.upsertPoints(retrieval.qdrantCollection, [
       {
@@ -123,7 +167,7 @@ async function vectorIds(
   limit: number,
   project?: string,
 ): Promise<string[]> {
-  const [vector] = await retrieval.embeddings.embedTexts([query]);
+  const [vector] = await embedObserved(retrieval, userId, [query]);
   if (!vector) return [];
   const hits = await retrieval.qdrant.queryPoints(
     retrieval.qdrantCollection,

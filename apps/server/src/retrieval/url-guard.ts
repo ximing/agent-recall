@@ -5,6 +5,9 @@ import { AppError } from '../errors.js';
 /** 保存精排地址失败时的固定文案。不要把被拒绝的主机拼进错误。 */
 export const RERANK_URL_REJECTED_MESSAGE = '精排地址必须是公网 HTTPS';
 
+/** 保存或请求模型地址失败时的固定文案。不要把被拒绝的主机拼进错误。 */
+export const LLM_URL_REJECTED_MESSAGE = '模型地址必须是公网 HTTPS';
+
 export type DnsResolver = (hostname: string) => Promise<readonly string[]>;
 
 export interface RerankUrlGuardOptions {
@@ -42,8 +45,8 @@ const IPV6_BLOCKS: ReadonlyArray<readonly [string, number]> = [
   ['2002::', 16],
 ];
 
-function rejected(): AppError {
-  return new AppError(400, 'VALIDATION', RERANK_URL_REJECTED_MESSAGE);
+function rejected(message: string): AppError {
+  return new AppError(400, 'VALIDATION', message);
 }
 
 function isProduction(appEnv: string | undefined): boolean {
@@ -169,32 +172,55 @@ async function defaultResolve(hostname: string): Promise<readonly string[]> {
   return records.map((record) => record.address);
 }
 
+export interface PublicUrlGuardOptions extends RerankUrlGuardOptions {
+  /** 拒绝时的固定文案。默认是精排那句。 */
+  message?: string;
+}
+
+function parseUrl(rawUrl: string, fail: () => never): URL {
+  try {
+    return new URL(rawUrl);
+  } catch {
+    return fail();
+  }
+}
+
+async function lookupHost(
+  host: string,
+  resolve: DnsResolver,
+  fail: () => never,
+): Promise<readonly string[]> {
+  try {
+    return await resolve(host);
+  } catch {
+    return fail();
+  }
+}
+
 /**
  * 生产环境只接受解析到公网单播的 HTTPS 主机名。
  * 其它环境仍允许测试替身（http://127.0.0.1:port），但拒绝非 http(s)。
  */
-export async function assertRerankBaseUrl(rawUrl: string, options: RerankUrlGuardOptions = {}): Promise<void> {
-  let url: URL;
-  try {
-    url = new URL(rawUrl);
-  } catch {
-    throw rejected();
-  }
+export async function assertPublicHttpUrl(rawUrl: string, options: PublicUrlGuardOptions = {}): Promise<void> {
+  const message = options.message ?? RERANK_URL_REJECTED_MESSAGE;
+  const fail = (): never => {
+    throw rejected(message);
+  };
+  const url = parseUrl(rawUrl, fail);
   const production = isProduction(options.appEnv);
   if (!production) {
-    if (url.protocol !== 'http:' && url.protocol !== 'https:') throw rejected();
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') fail();
     return;
   }
-  if (url.protocol !== 'https:') throw rejected();
-  if (url.username !== '' || url.password !== '') throw rejected();
+  if (url.protocol !== 'https:') fail();
+  if (url.username !== '' || url.password !== '') fail();
   const host = normalizeHostname(url.hostname);
-  if (host.length === 0 || isBlockedHostname(host) || isIpLiteral(host)) throw rejected();
+  if (host.length === 0 || isBlockedHostname(host) || isIpLiteral(host)) fail();
   const resolve = options.resolve ?? defaultResolve;
-  let addresses: readonly string[];
-  try {
-    addresses = await resolve(host);
-  } catch {
-    throw rejected();
-  }
-  if (addresses.length === 0 || addresses.some((address) => !isPublicUnicast(address))) throw rejected();
+  const addresses = await lookupHost(host, resolve, fail);
+  if (addresses.length === 0 || addresses.some((address) => !isPublicUnicast(address))) fail();
+}
+
+export function assertRerankBaseUrl(rawUrl: string, options: RerankUrlGuardOptions = {}): Promise<void> {
+  return assertPublicHttpUrl(rawUrl, options);
 }

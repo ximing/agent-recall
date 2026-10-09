@@ -7,6 +7,7 @@ import { memories, shareInvites, users, type MemoryRow, type ShareInviteRow } fr
 import { AppError } from '../errors.js';
 import { createMemory, listMemories, type CreateMemoryResult, type MemoryDeps } from './service.js';
 import { redactSecrets } from './privacy.js';
+import { semanticConsolidate } from './semantic.js';
 
 async function removeFromIndexes(deps: MemoryDeps, ids: string[]): Promise<void> {
   if (ids.length === 0) return;
@@ -254,7 +255,8 @@ export async function consolidateMemories(deps: MemoryDeps, userId: string, dryR
     await deps.db.delete(memories).where(and(eq(memories.userId, userId), inArray(memories.chainId, dropChains)));
     await removeFromIndexes(deps, versions.map((v) => v.id));
   }
-  return { groups: groups.length, merged };
+  const semantic = await semanticConsolidate(deps, userId, dryRun);
+  return { groups: groups.length, merged, semantic };
 }
 
 /**

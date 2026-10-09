@@ -698,7 +698,9 @@ const TOOLS = [
   {
     name: 'memory_consolidate',
     description:
-      'Find groups of near-duplicate memories and merge them. Set dryRun to preview the groups without merging. ' +
+      'Merge memories. Exact content-hash duplicates always collapse to the newest chain. ' +
+      'When the user has configured a model in Settings, also semantically merge lesson, pattern, bug, architecture, and workflow memories that say the same thing. ' +
+      'dryRun previews hash groups only and does not call the model. ' +
       'Unlike memory_auto_forget (which deletes), this merges content.',
     inputSchema: {
       type: 'object',

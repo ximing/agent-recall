@@ -63,9 +63,10 @@ describe('two-path recall', () => {
       model: 'qwen3-vl-embedding',
       dimensions: 8,
     });
-    const vectors = await client.embedTexts(['甲', '乙']);
-    expect(vectors[0]).toEqual(embedDeterministic('甲', 8));
-    expect(vectors[1]).toEqual(embedDeterministic('乙', 8));
+    const embedded = await client.embedTexts(['甲', '乙']);
+    expect(embedded.promptTokens).toBe(2);
+    expect(embedded.vectors[0]).toEqual(embedDeterministic('甲', 8));
+    expect(embedded.vectors[1]).toEqual(embedDeterministic('乙', 8));
     const recorded = standin.control.embeddingRequests.at(-1);
     expect(recorded?.url).toBe('/services/embeddings/multimodal-embedding/multimodal-embedding');
     expect(recorded?.authorization).toBe('Bearer dash-test');

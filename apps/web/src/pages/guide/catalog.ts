@@ -165,7 +165,7 @@ export const TOOL_GROUPS: readonly GuideGroup[] = [
     tools: [
       { name: 'memory_crystallize', summary: '把一整场会话收成一条可以长期留下的摘要。' },
       { name: 'memory_reflect', summary: '根据最近几天的记忆写一条反思，可以限定项目。' },
-      { name: 'memory_consolidate', summary: '找出近似重复并合并。dryRun 只列出分组。' },
+      { name: 'memory_consolidate', summary: '合并内容哈希相同的链。配置了大模型后还会做语义合并。dryRun 不调用模型。' },
       { name: 'memory_heal', summary: '重新索引待处理的记忆，并跑一遍自动遗忘。' },
       { name: 'memory_diagnose', summary: '体检：列出问题和建议，附上统计。' },
       { name: 'memory_audit', summary: '最近的审计记录：改动、删除、管理操作。' },

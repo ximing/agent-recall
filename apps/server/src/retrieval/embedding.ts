@@ -1,3 +1,4 @@
+import { estimateTokens, readUsageTokens } from '../llm/pricing.js';
 import { ensure2xx, requestJson, RetrievalError } from './http.js';
 
 export interface EmbeddingClientOptions {
@@ -8,8 +9,13 @@ export interface EmbeddingClientOptions {
   timeoutMs?: number;
 }
 
+export interface EmbeddingResult {
+  vectors: number[][];
+  promptTokens: number;
+}
+
 export interface EmbeddingClient {
-  embedTexts(texts: string[]): Promise<number[][]>;
+  embedTexts(texts: string[]): Promise<EmbeddingResult>;
 }
 
 const MAX_BATCH_SIZE = 20;
@@ -51,7 +57,7 @@ export function parseEmbeddingResponse(json: unknown, expectedCount: number): nu
 export function createEmbeddingClient(options: EmbeddingClientOptions): EmbeddingClient {
   const url = `${options.baseUrl.replace(/\/$/, '')}/services/embeddings/multimodal-embedding/multimodal-embedding`;
 
-  async function embedBatch(texts: string[]): Promise<number[][]> {
+  async function embedBatch(texts: string[]): Promise<EmbeddingResult> {
     const res = await requestJson('POST', url, {
       timeoutMs: options.timeoutMs ?? 30_000,
       headers: {
@@ -74,17 +80,23 @@ export function createEmbeddingClient(options: EmbeddingClientOptions): Embeddin
         );
       }
     }
-    return vectors;
+    return {
+      vectors,
+      promptTokens: readUsageTokens(res.json, estimateTokens(texts.join('\n'))),
+    };
   }
 
   return {
     async embedTexts(texts) {
-      if (texts.length === 0) return [];
+      if (texts.length === 0) return { vectors: [], promptTokens: 0 };
       const vectors: number[][] = [];
+      let promptTokens = 0;
       for (let start = 0; start < texts.length; start += MAX_BATCH_SIZE) {
-        vectors.push(...(await embedBatch(texts.slice(start, start + MAX_BATCH_SIZE))));
+        const batch = await embedBatch(texts.slice(start, start + MAX_BATCH_SIZE));
+        vectors.push(...batch.vectors);
+        promptTokens += batch.promptTokens;
       }
-      return vectors;
+      return { vectors, promptTokens };
     },
   };
 }

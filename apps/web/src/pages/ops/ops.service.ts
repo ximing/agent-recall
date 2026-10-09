@@ -92,7 +92,10 @@ export class OpsService extends Service {
     try {
       const result = await api.consolidate(false);
       this.consolidatePreview = null;
-      this.consolidateNote = `合并了 ${result.merged} 条重复链，共 ${result.groups} 组。`;
+      const exact = `合并了 ${result.merged} 条重复链，共 ${result.groups} 组。`;
+      this.consolidateNote = result.semantic.skipped
+        ? `${exact} 语义合并未执行：${result.semantic.reason ?? '已跳过'}。`
+        : `${exact} 语义合并新建 ${result.semantic.created} 条，改写 ${result.semantic.evolved} 条，吸收 ${result.semantic.absorbed} 条。`;
       await this.loadAudit();
     } catch (err) {
       this.error = errorMessage(err, '合并失败');

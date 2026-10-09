@@ -5,6 +5,7 @@
   gap: 20px;
   align-items: start;
 }
+.settings-split > * { min-width: 0; }
 .anchor-nav {
   position: sticky;
   top: 16px;
@@ -64,6 +65,9 @@
 .setting-form .field { padding: 7px 11px; font-size: 13px; }
 .setting-form .full { grid-column: 1 / -1; }
 .setting-form input[type="password"] { font-family: var(--font-mono); }
+.setting-form select.field { width: 100%; }
+.setting-check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); }
+.setting-section .badge { margin-left: 8px; }
 .setting-foot {
   display: flex;
   align-items: center;

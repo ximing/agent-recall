@@ -10,6 +10,8 @@ import { openDatabase } from './db/client.js';
 import { registerGraphRoutes } from './graph/routes.js';
 import { registerHookRoutes } from './hooks/routes.js';
 import { registerKvRoutes } from './kv/routes.js';
+import { registerLlmRoutes } from './llm/routes.js';
+import { logLlmUsage } from './llm/usage.js';
 import { registerMcpRoutes } from './mcp/routes.js';
 import { registerMemoryRoutes } from './memories/routes.js';
 import { registerSettingsRoutes } from './settings/routes.js';
@@ -35,6 +37,10 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   const schema = options.schema ?? config.DATABASE_SCHEMA;
   const opened = await openDatabase({ databaseUrl, schema });
   const retrieval = options.retrieval ?? createRetrieval(config);
+  if (!retrieval.recordUsage) {
+    retrieval.recordUsage = (entry) => logLlmUsage(opened.db, entry);
+  }
+
   const app = Fastify({ logger: options.logger ?? false });
   app.decorate('ctx', { db: opened.db, pool: opened.pool, retrieval, config, closeDb: opened.close });
   app.decorate('authenticate', authenticate);
@@ -52,6 +58,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   registerMcpRoutes(app);
   registerHookRoutes(app);
   registerSettingsRoutes(app);
+  registerLlmRoutes(app);
   registerKvRoutes(app);
   registerGraphRoutes(app);
   registerSnapshotRoutes(app);
