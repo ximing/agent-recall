@@ -42,6 +42,12 @@ function parseRerankResponse(json: unknown): RerankResult[] {
 }
 
 const SAFE_RERANK_FAILURE = /^rerank failed with status \d{3}$/;
+/** qwen3.7-text-rerank 拒绝单篇超过 50000 字符的文档，超长时只把开头送去精排。 */
+const RERANK_DOCUMENT_CHAR_LIMIT = 50_000;
+
+function limitRerankDocument(text: string): string {
+  return text.length > RERANK_DOCUMENT_CHAR_LIMIT ? text.slice(0, RERANK_DOCUMENT_CHAR_LIMIT) : text;
+}
 
 /** 日志和界面只保留固定短语，不带请求 URL 或响应体。 */
 export function publicRerankFailure(err: unknown): string {
@@ -71,6 +77,7 @@ export function createRerankClient(options: RerankClientOptions): RerankClient {
   return {
     async rerankTexts(query, documents, topN) {
       if (documents.length === 0) return { results: [], promptTokens: 0 };
+      const limited = documents.map(limitRerankDocument);
       try {
         // 请求前再验一次：库里已经存下的内网地址也要失败关闭。
         await assertRerankBaseUrl(url, { appEnv: options.appEnv });
@@ -83,7 +90,7 @@ export function createRerankClient(options: RerankClientOptions): RerankClient {
           },
           body: {
             model: options.model,
-            input: { query, documents },
+            input: { query, documents: limited },
             parameters: { top_n: topN, return_documents: false },
           },
         });
@@ -93,7 +100,7 @@ export function createRerankClient(options: RerankClientOptions): RerankClient {
         }
         return {
           results: parseRerankResponse(res.json),
-          promptTokens: readUsageTokens(res.json, estimateTokens([query, ...documents].join('\n'))),
+          promptTokens: readUsageTokens(res.json, estimateTokens([query, ...limited].join('\n'))),
         };
       } catch (err) {
         const message = publicRerankFailure(err);

@@ -10,3 +10,4 @@ docs/deploy.md
 .DS_Store
 coverage
 .vite
+eval/compare/data/

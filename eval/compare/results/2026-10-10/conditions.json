@@ -1,0 +1,28 @@
+{
+  "createdAt": "2026-10-10T02:57:39.658Z",
+  "gitSha": "cf69628",
+  "gitDirty": true,
+  "datasetFile": "longmemeval_s_cleaned.json",
+  "datasetBytes": 277383467,
+  "datasetSha256": "d6f21ea9d60a0d56f34a05b609c79c88a451d2ae03597821ea3d5a9678c3a442",
+  "headlineQuestions": 60,
+  "excludedAbstention": 0,
+  "stratify": 10,
+  "systems": [
+    "grep",
+    "agent-recall"
+  ],
+  "embeddingModel": "qwen3-vl-embedding",
+  "meiliIndex": "agent-recall-memories-test",
+  "qdrantCollection": "agent-recall-memories-test",
+  "contentCharLimit": 100000,
+  "retrieveK": 20,
+  "tokenizer": "cl100k_base",
+  "skippedSystems": [
+    "mem0",
+    "graphiti",
+    "letta",
+    "cognee",
+    "supermemory"
+  ]
+}

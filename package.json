@@ -27,6 +27,10 @@
     "typecheck": "pnpm --filter @agent-recall/dto build && pnpm -r --filter @agent-recall/dto --filter @agent-recall/server --filter @agent-recall/mcp --filter @agent-recall/web typecheck",
     "test": "pnpm --filter @agent-recall/dto build && pnpm --filter @agent-recall/server test",
     "eval": "pnpm --filter @agent-recall/dto build && pnpm --filter @agent-recall/server exec tsx ../../eval/run.ts",
+    "eval:compare": "pnpm --filter @agent-recall/dto build && pnpm --filter @agent-recall/server exec -- tsx ../../eval/compare/src/run.ts",
     "e2e": "pnpm --filter @agent-recall/dto build && pnpm --filter @agent-recall/server exec tsx ../../e2e/run.ts"
+  },
+  "devDependencies": {
+    "js-tiktoken": "^1.0.21"
   }
 }

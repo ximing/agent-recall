@@ -1,5 +1,7 @@
 # eval/ — 召回质量评测 harness（P3）
 
+和公开记忆产品对照的协议在 [`compare/PROTOCOL.md`](compare/PROTOCOL.md)，2026-10-10 的分数和结论在 [`compare/RESULTS.md`](compare/RESULTS.md)。主结果用 LongMemEval-S cleaned。原始对话下载到 `compare/data/`，不提交。
+
 对检索管道（词法 + 向量两路召回 → RRF k=60 融合 → 可选精排 → 版本/过期裁决）做端到端回归评测。
 
 ## 运行
