@@ -6,6 +6,7 @@ import { MarkdownView } from '@/components/MarkdownView';
 import { ROUTES } from '@/routes';
 import { formatTime } from '@/utils/format';
 import { ORIGIN_LABEL, TYPE_LABEL } from '@/utils/labels';
+import { COST_CAPABILITIES, COST_TITLES, formatCost, formatTokens } from '@/pages/cost/cost.service';
 import { BoardService } from './board.service';
 import {
   formatCount,
@@ -67,7 +68,7 @@ const BoardPage = observer(function BoardPage() {
       <header className="page-head">
         <div>
           <h1>看板</h1>
-          <p className="desc">记忆有多少、哪些要接着做、最近的会话和召回。</p>
+          <p className="desc">记忆有多少、哪些要接着做、最近的会话、召回和调用成本。</p>
         </div>
         <div className="head-actions">
           <button type="button" className="btn" disabled={service.loading} onClick={() => void service.load()}>
@@ -92,6 +93,51 @@ const BoardPage = observer(function BoardPage() {
       </nav>
 
       <div className="board-grid">
+        <section className="panel board-panel span-2">
+          <div className="panel-head">
+            <div>
+              <h2>调用成本</h2>
+              <p className="sub">大模型、向量和精排的全部调用。金额按公开单价估算。</p>
+            </div>
+            <Link to={ROUTES.cost} className="board-more">
+              明细
+            </Link>
+          </div>
+          {service.usage === null ? (
+            <Hint loading={service.loading} />
+          ) : (
+            <ul className="board-list cost-lines">
+              {COST_CAPABILITIES.map((capability) => {
+                const row = service.usage?.byCapability.find((item) => item.capability === capability);
+                const promptTokens = row?.promptTokens ?? 0;
+                const completionTokens = row?.completionTokens ?? 0;
+                const totalTokens = row?.totalTokens ?? 0;
+                const calls = row?.calls ?? 0;
+                const costEstimate = row?.costEstimate ?? 0;
+                return (
+                  <li key={capability}>
+                    <span className="grow">
+                      <strong>{COST_TITLES[capability]}</strong>
+                      <span className="cost-meta">
+                        {formatTokens(promptTokens)} 输入 · {formatTokens(completionTokens)} 输出 · {formatTokens(totalTokens)}{' '}
+                        token · {formatTokens(calls)} 次
+                      </span>
+                    </span>
+                    <span className="tail">{formatCost(costEstimate)}</span>
+                  </li>
+                );
+              })}
+              <li>
+                <span className="grow">
+                  <strong>合计</strong>
+                  <span className="cost-meta">{formatTokens(service.usage.totalTokens)} token</span>
+                </span>
+                <span className="tail">{formatCost(service.usage.totalCost)}</span>
+              </li>
+            </ul>
+          )}
+        </section>
+
         <section className="panel board-panel">
           <div className="panel-head">
             <div>

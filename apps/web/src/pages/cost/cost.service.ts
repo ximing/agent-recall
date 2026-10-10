@@ -27,8 +27,8 @@ const EMPTY_BREAKDOWN: LlmUsageBreakdown[] = COST_CAPABILITIES.map((capability) 
 
 export function formatCost(value: number): string {
   if (!Number.isFinite(value) || value === 0) return '$0';
-  if (value < 0.0001) return `$${value.toExponential(2)}`;
-  const fixed = value.toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
+  const fixed = value.toFixed(8).replace(/0+$/, '').replace(/\.$/, '');
+  if (fixed === '0') return '$0';
   return `$${fixed}`;
 }
 
