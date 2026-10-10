@@ -21,6 +21,7 @@ import type {
   MemoryListQuery,
   MemoryPublic,
   MemoryStats,
+  ProjectSummaryPublic,
   MemoryUpdateInput,
   RecallInput,
   RecallLogPublic,
@@ -98,6 +99,12 @@ function memoryQueryString(query: MemoryListQuery = {}): string {
   return qs ? `?${qs}` : '';
 }
 
+function choiceQuery(q?: string): string {
+  const query = q?.trim();
+  if (!query) return '';
+  return `?${new URLSearchParams({ q: query }).toString()}`;
+}
+
 export const api = {
   register: (email: string, password: string) =>
     request<{ user: UserPublic }>('/api/auth/register', {
@@ -171,13 +178,14 @@ export const api = {
       body: JSON.stringify({ dryRun }),
     }),
   getMemoryStats: () => request<{ stats: MemoryStats }>('/api/memories/stats'),
+  listProjects: (q?: string) => request<{ projects: ProjectSummaryPublic[] }>(`/api/memories/projects${choiceQuery(q)}`),
   exportMemories: () => request<ExportResult>('/api/memories/export'),
   importMemories: (input: ImportInput) =>
     request<{ imported: number; skipped: number; replaced: number }>('/api/memories/import', {
       method: 'POST',
       body: JSON.stringify(input),
     }),
-  listSessions: () => request<{ sessions: SessionSummaryPublic[] }>('/api/sessions'),
+  listSessions: (q?: string) => request<{ sessions: SessionSummaryPublic[] }>(`/api/sessions${choiceQuery(q)}`),
   getSessionMemories: (sessionId: string) =>
     request<{ memories: MemoryPublic[] }>(`/api/sessions/${encodeURIComponent(sessionId)}`),
   listTokens: () => request<{ tokens: TokenPublic[] }>('/api/tokens'),

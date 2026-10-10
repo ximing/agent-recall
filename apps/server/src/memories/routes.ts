@@ -23,7 +23,7 @@ import {
   updateMemory,
 } from './service.js';
 import { autoForget, batchForget, exportMemories, importMemories, memoryStats } from './governance.js';
-import { createSessionSummary, listSessions, sessionTimeline } from './sessions.js';
+import { createSessionSummary, listProjects, listSessions, sessionTimeline } from './sessions.js';
 import { buildInjectedContext } from './context.js';
 import {
   acceptShare,
@@ -109,6 +109,13 @@ export function registerMemoryRoutes(app: FastifyInstance): void {
     return { stats: await memoryStats(deps(), actor.userId) };
   });
 
+  /** 筛选候选项：已有项目名。q 为包含匹配。 */
+  app.get('/api/memories/projects', { preHandler: [app.authenticate] }, async (req) => {
+    const actor = requireActor(req);
+    const q = (req.query as { q?: string }).q;
+    return { projects: await listProjects(deps(), actor.userId, q) };
+  });
+
   app.get('/api/memories/export', { preHandler: [app.authenticate] }, async (req) => {
     const actor = requireActor(req);
     return exportMemories(deps(), actor.userId);
@@ -190,7 +197,8 @@ export function registerMemoryRoutes(app: FastifyInstance): void {
 
   app.get('/api/sessions', { preHandler: [app.authenticate] }, async (req) => {
     const actor = requireActor(req);
-    return { sessions: await listSessions(deps(), actor.userId) };
+    const q = (req.query as { q?: string }).q;
+    return { sessions: await listSessions(deps(), actor.userId, q) };
   });
 
   app.get('/api/sessions/:sessionId', { preHandler: [app.authenticate] }, async (req) => {

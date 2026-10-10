@@ -139,6 +139,22 @@ describe('memory lifecycle, governance, and hooks context', () => {
     expect(sess).toBeTruthy();
     expect(sess!.memoryCount).toBeGreaterThanOrEqual(2);
 
+    const byProject = await call(app, 'GET', '/api/sessions?q=agent-recall', { token });
+    const matchedSessions = byProject.body?.sessions as Array<{ sessionId: string }>;
+    expect(matchedSessions.some((item) => item.sessionId === 'sess-x')).toBe(true);
+    const wildcardSessions = await call(app, 'GET', '/api/sessions?q=%25', { token });
+    expect((wildcardSessions.body?.sessions as unknown[]).some((item) => (item as { sessionId: string }).sessionId === 'sess-x')).toBe(
+      false,
+    );
+
+    const projects = await call(app, 'GET', '/api/memories/projects', { token });
+    const names = (projects.body?.projects as Array<{ project: string; memoryCount: number }>).map((item) => item.project);
+    expect(names).toContain('agent-recall');
+    const narrowed = await call(app, 'GET', '/api/memories/projects?q=agent-rec', { token });
+    expect((narrowed.body?.projects as Array<{ project: string }>).some((item) => item.project === 'agent-recall')).toBe(true);
+    const noProject = await call(app, 'GET', '/api/memories/projects?q=%25', { token });
+    expect(noProject.body?.projects).toEqual([]);
+
     const timeline = await call(app, 'GET', '/api/sessions/sess-x', { token });
     const items = timeline.body?.memories as Array<{ origin: string; content: string }>;
     const summary = items.find((m) => m.origin === 'summary');

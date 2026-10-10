@@ -6,6 +6,8 @@ import type {
   MemoryStats,
   MemoryType,
   Origin,
+  ProjectSummaryPublic,
+  SessionSummaryPublic,
 } from '@agent-recall/dto';
 import { Service } from '@rabjs/react';
 import { api, errorMessage } from '@/api/client';
@@ -62,6 +64,14 @@ export class MemoriesService extends Service {
   typeFilter: MemoryType | 'all' = 'all';
   projectFilter = '';
   sessionFilter = '';
+  projectChoices: ProjectSummaryPublic[] = [];
+  sessionChoices: SessionSummaryPublic[] = [];
+  projectChoicesLoading = false;
+  sessionChoicesLoading = false;
+  private projectSearchTimer: ReturnType<typeof setTimeout> | null = null;
+  private sessionSearchTimer: ReturnType<typeof setTimeout> | null = null;
+  private projectSearchSeq = 0;
+  private sessionSearchSeq = 0;
   tagsFilter = '';
   createdAfter = '';
   createdBefore = '';
@@ -207,6 +217,54 @@ export class MemoriesService extends Service {
   setSessionFilter(value: string): void {
     this.sessionFilter = value;
     this.refreshFilters(false);
+  }
+
+  /** 项目候选项。空关键字立即取最近项目，有关键字稍等再按包含匹配查。 */
+  scheduleProjectSearch(query: string): void {
+    if (this.projectSearchTimer) clearTimeout(this.projectSearchTimer);
+    if (!query.trim()) {
+      void this.fetchProjects('');
+      return;
+    }
+    this.projectSearchTimer = setTimeout(() => void this.fetchProjects(query), 200);
+  }
+
+  /** 会话候选项。空关键字立即取最近会话，有关键字按会话 ID 或项目名查。 */
+  scheduleSessionSearch(query: string): void {
+    if (this.sessionSearchTimer) clearTimeout(this.sessionSearchTimer);
+    if (!query.trim()) {
+      void this.fetchSessions('');
+      return;
+    }
+    this.sessionSearchTimer = setTimeout(() => void this.fetchSessions(query), 200);
+  }
+
+  private async fetchProjects(query: string): Promise<void> {
+    const seq = ++this.projectSearchSeq;
+    this.projectChoicesLoading = true;
+    try {
+      const result = await api.listProjects(query);
+      if (seq !== this.projectSearchSeq) return;
+      this.projectChoices = result.projects;
+    } catch {
+      // 候选项失败不挡住记忆列表，下拉保持上一次的结果
+    } finally {
+      if (seq === this.projectSearchSeq) this.projectChoicesLoading = false;
+    }
+  }
+
+  private async fetchSessions(query: string): Promise<void> {
+    const seq = ++this.sessionSearchSeq;
+    this.sessionChoicesLoading = true;
+    try {
+      const result = await api.listSessions(query);
+      if (seq !== this.sessionSearchSeq) return;
+      this.sessionChoices = result.sessions;
+    } catch {
+      // 同上
+    } finally {
+      if (seq === this.sessionSearchSeq) this.sessionChoicesLoading = false;
+    }
   }
 
   setTagsFilter(value: string): void {
@@ -605,7 +663,7 @@ export class MemoriesService extends Service {
   }
 
   async load(): Promise<void> {
-    await Promise.all([this.fetchList(0, false), this.loadStats()]);
+    await Promise.all([this.fetchList(0, false), this.loadStats(), this.fetchProjects(''), this.fetchSessions('')]);
   }
 
   /* ---------- 新建 / 编辑 ---------- */

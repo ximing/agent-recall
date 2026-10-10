@@ -159,6 +159,13 @@ export const sessionSummarySchema = z.object({
 });
 export type SessionSummaryPublic = z.infer<typeof sessionSummarySchema>;
 
+export const projectSummarySchema = z.object({
+  project: z.string(),
+  memoryCount: z.number().int(),
+  lastAt: z.string(),
+});
+export type ProjectSummaryPublic = z.infer<typeof projectSummarySchema>;
+
 export const tokenCreateSchema = z.object({
   name: z.string().trim().min(1).max(80),
 });

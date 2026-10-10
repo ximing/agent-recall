@@ -141,6 +141,8 @@
 .adv-panel .adv-fields { display: flex; gap: 8px; flex-wrap: wrap; }
 .adv-panel .adv-fields .field { width: auto; flex: 1; min-width: 150px; padding: 6px 11px; font-size: 13px; }
 .adv-panel .adv-fields .field.time { flex: none; width: 196px; }
+.adv-panel .adv-fields .ui-search-select { flex: 1; min-width: 180px; }
+.adv-panel .adv-fields .ui-search-select .ui-select-btn { padding: 6px 11px; font-size: 13px; }
 .quiet-forget {
   display: flex;
   align-items: center;

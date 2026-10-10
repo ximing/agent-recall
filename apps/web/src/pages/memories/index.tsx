@@ -1,8 +1,10 @@
-import { MEMORY_TYPES, type MemoryType, type Origin } from '@agent-recall/dto';
+import { MEMORY_TYPES, type MemoryType, type Origin, type SessionSummaryPublic } from '@agent-recall/dto';
 import { bindServices, observer, useService } from '@rabjs/react';
 import { Download, ListFilter, Plus, Search, Sparkles, Upload } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { SearchSelect } from '@/components/ui/SearchSelect';
 import { Select } from '@/components/ui/Select';
+import { formatTime } from '@/utils/format';
 import { TYPE_LABEL } from '@/utils/labels';
 import { MemoryDrawer } from './MemoryDrawer';
 import { BatchBar } from './components/batch-bar';
@@ -22,6 +24,11 @@ const ORIGIN_FILTERS: Array<{ key: Origin | 'all'; label: string }> = [
   { key: 'import', label: '导入' },
   { key: 'summary', label: '摘要' },
 ];
+
+function sessionHint(session: SessionSummaryPublic): string {
+  const projects = session.projects.filter((name) => name.trim().length > 0).slice(0, 2).join('、');
+  return [projects, `${session.memoryCount} 条`, formatTime(session.lastAt)].filter((part) => part.length > 0).join(' · ');
+}
 
 const SORT_OPTIONS: Array<{ value: MemorySort; label: string }> = [
   { value: 'created-desc', label: '最新创建' },
@@ -223,17 +230,36 @@ const MemoriesPage = observer(function MemoriesPage() {
           <div className="adv-group">
             <span className="adv-label">范围与时间</span>
             <div className="adv-fields">
-              <input
-                className="field"
-                placeholder="按项目筛选…"
+              <SearchSelect
+                ariaLabel="项目"
+                placeholder="搜索并选择项目"
+                emptyText="没有匹配的项目"
+                blankText="还没有带项目的记忆"
                 value={service.projectFilter}
-                onChange={(event) => service.setProjectFilter(event.target.value)}
+                loading={service.projectChoicesLoading}
+                options={service.projectChoices.map((item) => ({
+                  value: item.project,
+                  label: item.project,
+                  hint: `${item.memoryCount} 条`,
+                }))}
+                onSearch={(query) => service.scheduleProjectSearch(query)}
+                onChange={(next) => service.setProjectFilter(next)}
               />
-              <input
-                className="field"
-                placeholder="按会话 ID 筛选…"
+              <SearchSelect
+                ariaLabel="会话"
+                placeholder="搜索并选择会话"
+                emptyText="没有匹配的会话"
+                blankText="还没有会话"
+                mono
                 value={service.sessionFilter}
-                onChange={(event) => service.setSessionFilter(event.target.value)}
+                loading={service.sessionChoicesLoading}
+                options={service.sessionChoices.map((item) => ({
+                  value: item.sessionId,
+                  label: item.sessionId,
+                  hint: sessionHint(item),
+                }))}
+                onSearch={(query) => service.scheduleSessionSearch(query)}
+                onChange={(next) => service.setSessionFilter(next)}
               />
               <input
                 className="field"

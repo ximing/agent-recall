@@ -13,13 +13,13 @@
 | `GET` `POST /api/memories`，`GET` `PATCH` `DELETE /api/memories/:id` | 两者 | 记忆 CRUD。PATCH 产生新版本 |
 | `GET /api/memories/:id/versions` | 两者 | 版本链 |
 | `POST /api/memories/recall`、`/smart-search`、`/context` | 两者 | 检索，以及与钩子相同的注入预览 |
-| `GET /api/memories/recall-logs`、`/stats` | 两者 | 召回日志、统计 |
+| `GET /api/memories/recall-logs`、`/stats`、`/projects` | 两者 | 召回日志、统计、已有项目。项目列表可用 `q` 按名称包含匹配 |
 | `GET /api/memories/export`，`POST /api/memories/import` | 两者 | 导出、导入 |
 | `POST /api/memories/batch-forget`、`/auto-forget`、`/consolidate` | 两者 | 批量删除、自动遗忘、合并。哈希合并始终执行；语义合并要用户在设置里配过大模型 |
 | `POST /api/memories/:id/share`，`GET /api/memories/shared-feed` | 两者 | 向队友发送邀请（对方接受前不复制）、查看已接受的分享 |
 | `GET /api/shares/incoming`，`POST /api/shares/:id/accept`、`/reject` | 两者 | 列出、接受或拒绝收到的邀请 |
 | `POST /api/memories/reflect` | 两者 | 生成反思 |
-| `GET /api/sessions`，`GET /api/sessions/:sessionId` | 两者 | 会话列表、时间线 |
+| `GET /api/sessions`，`GET /api/sessions/:sessionId` | 两者 | 会话列表、时间线。列表可用 `q` 按会话 ID 或项目名包含匹配 |
 | `POST /api/sessions/:sessionId/crystallize` | 两者 | 把一场会话收成摘要 |
 | `POST /api/hooks/events` | token | 插件写入。SessionEnd 时生成摘要 |
 | `POST /api/hooks/context` | token | `{ query, tokenBudget?, project? }`，返回可注入的文本 |
