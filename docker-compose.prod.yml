@@ -1,6 +1,6 @@
 # Production on the app host. One GHCR image serves the API and the web app.
 # Entry nginx serves https://recall.aimo.plus and proxies to the upstream
-# defined in the untracked recall-origin.conf.
+# defined in the untracked recall-origin.upstream.
 #
 #   mkdir -p /root/apps/agent-recall
 #   # .env stays on the server. Do not commit it.

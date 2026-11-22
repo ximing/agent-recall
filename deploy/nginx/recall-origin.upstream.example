@@ -1,0 +1,9 @@
+# Install on the entry host, outside this repository:
+#   /root/apps/nginx/sites/aimo.plus/recall-origin.upstream
+# The directory include is *.conf, so this file must not end in .conf.
+# recall.aimo.plus.conf includes this path. Replace the documentation address.
+# Do not copy this example over the live file.
+
+upstream recall_app {
+    server 192.0.2.1:13007;
+}
